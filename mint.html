@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>IsoCity Mint</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Mono', Monaco, monospace;
+      background: #0a0a14;
+      color: #fff;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    h1 { text-align: center; font-size: 2em; margin-bottom: 10px; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    .section {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .section h2 {
+      font-size: 14px;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .wallet-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .wallet-address {
+      font-size: 14px;
+      color: #c3ff00;
+      word-break: break-all;
+    }
+    .wallet-address.disconnected { color: #ff6b6b; }
+
+    button {
+      padding: 12px 24px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #e94560;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover { background: #ff6b6b; }
+    button:disabled { background: #444; cursor: not-allowed; }
+    button.secondary { background: #333; }
+    button.secondary:hover { background: #444; }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 14px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #0a0a14;
+      border: 2px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    input:focus { outline: none; border-color: #e94560; }
+
+    .preview-area {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .preview-canvas {
+      flex: 1;
+      min-width: 300px;
+    }
+    .preview-canvas canvas {
+      width: 100%;
+      border-radius: 8px;
+      background: #0a0a14;
+    }
+    .preview-info {
+      flex: 1;
+      min-width: 250px;
+    }
+    .traits {
+      font-size: 13px;
+      color: #e94560;
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+
+    .mint-options {
+      margin: 20px 0;
+    }
+    .option {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: #0a0a14;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    .option:hover { background: #1a1a2e; }
+    .option input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #e94560;
+    }
+    .option-label { flex: 1; }
+    .option-label .title { font-weight: bold; margin-bottom: 4px; }
+    .option-label .addr { font-size: 12px; color: #888; word-break: break-all; }
+
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+    .status.info { background: #1a3a5c; color: #6db3f2; }
+    .status.success { background: #1a3c1a; color: #6bf26d; }
+    .status.error { background: #3c1a1a; color: #f26d6d; }
+
+    .tx-link {
+      color: #c3ff00;
+      text-decoration: none;
+    }
+    .tx-link:hover { text-decoration: underline; }
+
+    .collection-info {
+      font-size: 12px;
+      color: #666;
+      margin-top: 12px;
+      word-break: break-all;
+    }
+
+    #spritesheet-status {
+      text-align: center;
+      color: #c3ff00;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>IsoCity Mint</h1>
+<p class="subtitle">Mint deterministic cities or game plots as ethscriptions</p>
+<p id="spritesheet-status">Loading spritesheet from Base L2...</p>
+
+<!-- Mode Toggle -->
+<div style="display:flex;justify-content:center;gap:8px;margin:16px 0">
+  <button id="mode-city" onclick="setMode('city')" style="padding:10px 20px">City (Dense)</button>
+  <button id="mode-plot" onclick="setMode('plot')" class="secondary" style="padding:10px 20px">Game Plot (Sparse)</button>
+</div>
+
+<div class="container">
+
+  <!-- Wallet Connection -->
+  <div class="section">
+    <h2>Wallet</h2>
+    <div class="wallet-status">
+      <div>
+        <div class="wallet-address disconnected" id="wallet-address">Not connected</div>
+        <div style="font-size:12px;color:#666;margin-top:4px">
+          Balance: <span id="wallet-balance">-</span> ETH
+        </div>
+      </div>
+      <button id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+    </div>
+  </div>
+
+  <!-- Collection Status -->
+  <div class="section">
+    <h2>Collection</h2>
+    <div id="collection-form">
+      <input type="text" id="collection-name" placeholder="Collection Name (e.g. IsoCity)" value="IsoCity" />
+      <input type="text" id="collection-symbol" placeholder="Symbol (e.g. ISOCITY)" value="ISOCITY" />
+      <input type="text" id="collection-supply" placeholder="Max Supply (e.g. 10000)" value="10000" />
+      <input type="text" id="collection-description" placeholder="Description" value="Deterministic isometric cities from wallet addresses" />
+      <p style="color:#888;font-size:12px;margin-top:8px">Item #0 will be generated from your connected wallet address</p>
+    </div>
+    <div id="collection-status" style="margin-top:12px">
+      <p style="color:#888">No collection created yet</p>
+    </div>
+    <button id="create-collection-btn" onclick="createCollection()" disabled style="margin-top:12px">
+      Create Collection
+    </button>
+    <button onclick="resetCollection()" class="secondary" style="margin-top:12px;margin-left:8px">
+      Reset
+    </button>
+    <button onclick="importCollection()" class="secondary" style="margin-top:12px;margin-left:8px">
+      Import
+    </button>
+    <button onclick="showHistory()" class="secondary" style="margin-top:12px;margin-left:8px">
+      History
+    </button>
+    <button onclick="exportHistory()" class="secondary" style="margin-top:12px;margin-left:8px">
+      Export CSV
+    </button>
+    <button onclick="exportCitiesJson()" class="secondary" style="margin-top:12px;margin-left:8px">
+      Export JSON
+    </button>
+    <div class="collection-info" id="collection-info"></div>
+  </div>
+
+  <!-- Generate & Preview -->
+  <div class="section">
+    <h2>Generate City</h2>
+    <input type="text" id="target-address" placeholder="Enter wallet address to generate city from (0x...)" />
+    <button onclick="generatePreview()" id="preview-btn" disabled>Generate Preview</button>
+
+    <div id="preview-container" style="display:none;margin-top:24px">
+      <div class="preview-area">
+        <div class="preview-canvas">
+          <canvas id="preview-canvas" width="455" height="333"></canvas>
+        </div>
+        <div class="preview-info">
+          <div class="traits" id="preview-traits"></div>
+
+          <div class="mint-options">
+            <h3 style="font-size:13px;margin-bottom:12px">Send ethscription to:</h3>
+
+            <label class="option">
+              <input type="radio" name="recipient" value="target" checked>
+              <div class="option-label">
+                <div class="title">Generated Address</div>
+                <div class="addr" id="option-target-addr">-</div>
+              </div>
+            </label>
+
+            <label class="option">
+              <input type="radio" name="recipient" value="minter">
+              <div class="option-label">
+                <div class="title">My Wallet (Minter)</div>
+                <div class="addr" id="option-minter-addr">-</div>
+              </div>
+            </label>
+          </div>
+
+          <button onclick="mint()" id="mint-btn" disabled style="width:100%">
+            Mint City
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="mint-status"></div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================================
+// Config
+// ============================================================================
+
+const MANIFEST_TX = '0x9a636f402d9db52b36c9c9a1c4da8c79beba4d8da9ac4c121f20257bc12c3b56';
+const RPC_BASE = 'https://mainnet.base.org';
+const CHUNK_PREFIX = 'data:chunk,';
+const TEX_WIDTH = 12;
+const GRID_SIZE = 7;
+
+let texture = null;
+let walletAddress = null;
+let collectionId = null;
+let itemCount = 0;
+let currentMap = null;
+let currentTraits = null;
+let currentTargetAddress = null;
+let collectionName = 'IsoCity';
+let mintHistory = [];
+let mintMode = 'city'; // 'city' or 'plot'
+
+// Game tiles for sparse plots
+const GAME_TILES = {
+  empty: [[0, 6], [0, 7]],
+  tree: [[0, 4], [0, 5]],
+  rock: [[2, 7], [2, 10]],
+  water: [[0, 1]],
+  farmland: [[0, 8]],
+  ore: [[3, 10]]
+};
+
+// ============================================================================
+// Spritesheet Loading (from Base L2)
+// ============================================================================
+
+async function fetchTx(txHash) {
+  const response = await fetch(RPC_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_getTransactionByHash',
+      params: [txHash],
+      id: 1
+    })
+  });
+  const { result } = await response.json();
+  if (!result || !result.input) throw new Error('TX not found');
+  const hex = result.input.slice(2);
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+function decodeChunk(calldata) {
+  if (!calldata.startsWith(CHUNK_PREFIX)) return null;
+  const payload = JSON.parse(atob(calldata.slice(CHUNK_PREFIX.length)));
+  const binary = atob(payload.data);
+  const data = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    data[i] = binary.charCodeAt(i);
+  }
+  return { part: payload.part, data };
+}
+
+async function loadSpritesheet() {
+  const statusEl = document.getElementById('spritesheet-status');
+
+  statusEl.textContent = 'Fetching manifest...';
+  const manifestRaw = await fetchTx(MANIFEST_TX);
+  const manifest = JSON.parse(manifestRaw.slice(manifestRaw.indexOf('{')));
+
+  const chunks = [];
+  for (let i = 0; i < manifest.chunks.length; i++) {
+    statusEl.textContent = `Loading chunk ${i + 1}/${manifest.totalChunks}...`;
+    const calldata = await fetchTx(manifest.chunks[i]);
+    const chunk = decodeChunk(calldata);
+    if (!chunk) throw new Error(`Failed to decode chunk ${i + 1}`);
+    chunks.push(chunk);
+  }
+
+  statusEl.textContent = 'Assembling spritesheet...';
+  chunks.sort((a, b) => a.part - b.part);
+  const totalSize = chunks.reduce((sum, c) => sum + c.data.length, 0);
+  const result = new Uint8Array(totalSize);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk.data, offset);
+    offset += chunk.data.length;
+  }
+
+  const blob = new Blob([result], { type: 'image/png' });
+  const url = URL.createObjectURL(blob);
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = url;
+  });
+}
+
+// ============================================================================
+// City Generation
+// ============================================================================
+
+const TILES = {
+  grass: [0, 0],
+  trees: [[0, 6], [0, 7]],
+  roadsH: [[0, 2], [0, 3], [0, 4], [0, 5]],
+  roadsV: [[3, 0], [3, 1]],
+  roadExtras: [[1, 0], [1, 1], [1, 2], [1, 3], [0, 8], [0, 9], [0, 10], [0, 11], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8], [1, 9], [1, 10], [1, 11], [4, 0], [2, 6], [2, 7], [2, 8], [2, 9], [3, 3], [3, 4], [3, 5], [3, 7], [3, 8], [3, 9], [4, 2], [4, 3], [4, 4], [4, 5]],
+  curves: [[2, 0], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [2, 10], [2, 11], [3, 2]],
+  small: [[5, 6], [5, 8], [5, 10]],
+  medium: [[4, 6], [4, 7], [5, 0], [5, 1], [5, 3], [5, 4], [5, 5], [5, 7], [5, 9], [5, 11]],
+  tall: [[3, 10], [4, 9], [4, 10], [4, 11], [5, 2]],
+  shops: [[3, 6], [3, 11], [4, 8]],
+  special: [[0, 1], [4, 1]],
+};
+
+class AddressRNG {
+  constructor(address) {
+    this.hex = address.toLowerCase().replace('0x', '');
+    this.index = 0;
+  }
+  next() {
+    const byte = parseInt(this.hex.substr((this.index * 2) % 40, 2), 16);
+    this.index++;
+    return byte;
+  }
+  range(max) { return this.next() % max; }
+  pick(arr) { return arr[this.range(arr.length)]; }
+  chance(p) { return this.next() < p; }
+}
+
+function getCityParams(rng) {
+  return {
+    density: rng.next(),
+    heightBias: rng.next(),
+    heightDiversity: rng.next(),
+    buildingDiversity: rng.next(),
+    hasHorizontalRoad: rng.chance(180),
+    hasVerticalRoad: rng.chance(180),
+    hasDiagonalFeature: rng.chance(80),
+    roadRow: 1 + rng.range(5),
+    roadCol: 1 + rng.range(5),
+    greenery: rng.next(),
+    natureDiversity: rng.next(),
+    clustering: rng.next(),
+    hasCommercial: rng.chance(150),
+    commercialRow: rng.range(GRID_SIZE),
+    hasLandmark: rng.chance(100),
+    landmarkRow: rng.range(GRID_SIZE),
+    landmarkCol: rng.range(GRID_SIZE),
+    fixedSmall: rng.pick(TILES.small),
+    fixedMedium: rng.pick(TILES.medium),
+    fixedTall: rng.pick(TILES.tall),
+    fixedTree: rng.pick(TILES.trees),
+    fixedShop: rng.pick(TILES.shops),
+    roadTile: rng.pick(TILES.roadsH),
+    roadVTile: rng.pick(TILES.roadsV),
+  };
+}
+
+// Mode toggle
+function setMode(mode) {
+  mintMode = mode;
+  document.getElementById('mode-city').classList.toggle('secondary', mode !== 'city');
+  document.getElementById('mode-plot').classList.toggle('secondary', mode !== 'plot');
+
+  // Update UI hints
+  const subtitle = document.querySelector('.subtitle');
+  if (mode === 'plot') {
+    subtitle.textContent = 'Mint sparse game plots with resource nodes';
+    collectionName = 'IsoCity Plot';
+  } else {
+    subtitle.textContent = 'Mint deterministic cities as ethscriptions';
+    collectionName = 'IsoCity';
+  }
+}
+
+// Sparse plot generation for game
+function generatePlot(address) {
+  const rng = new AddressRNG(address);
+
+  const params = {
+    resourceDensity: 25 + rng.range(40),
+    treeChance: 30 + rng.range(40),
+    rockChance: 20 + rng.range(30),
+    waterChance: 5 + rng.range(15),
+    farmChance: 10 + rng.range(20),
+    oreChance: 5 + rng.range(10),
+    hasClearing: rng.chance(180),
+    hasWaterSource: rng.chance(150),
+    hasOreDeposit: rng.chance(100),
+    fixedTree: rng.pick(GAME_TILES.tree),
+    fixedRock: rng.pick(GAME_TILES.rock),
+    fixedEmpty: rng.pick(GAME_TILES.empty),
+  };
+
+  const map = Array(GRID_SIZE).fill(null).map(() =>
+    Array(GRID_SIZE).fill(null).map(() => [...params.fixedEmpty])
+  );
+
+  const resources = { tree: 0, rock: 0, water: 0, farmland: 0, ore: 0 };
+
+  const placeResource = () => {
+    const roll = rng.range(100);
+    const tree = params.treeChance;
+    const rock = tree + params.rockChance;
+    const water = rock + params.waterChance;
+    const farm = water + params.farmChance;
+
+    if (roll < tree) {
+      resources.tree++;
+      return rng.chance(128) ? [...GAME_TILES.tree[0]] : [...GAME_TILES.tree[1]];
+    } else if (roll < rock) {
+      resources.rock++;
+      return [...rng.pick(GAME_TILES.rock)];
+    } else if (roll < water) {
+      resources.water++;
+      return [...GAME_TILES.water[0]];
+    } else if (roll < farm) {
+      resources.farmland++;
+      return [...GAME_TILES.farmland[0]];
+    } else {
+      resources.ore++;
+      return [...GAME_TILES.ore[0]];
+    }
+  };
+
+  // Scatter resources
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      if (params.hasClearing && Math.abs(i - 3) <= 1 && Math.abs(j - 3) <= 1) {
+        continue;
+      }
+      if (rng.range(100) < params.resourceDensity / 3) {
+        map[i][j] = placeResource();
+      }
+    }
+  }
+
+  // Guarantee water
+  if (params.hasWaterSource && resources.water === 0) {
+    const wi = rng.range(GRID_SIZE);
+    const wj = rng.range(GRID_SIZE);
+    map[wi][wj] = [...GAME_TILES.water[0]];
+    resources.water++;
+  }
+
+  // Guarantee ore
+  if (params.hasOreDeposit && resources.ore === 0) {
+    const oi = rng.chance(128) ? 0 : GRID_SIZE - 1;
+    const oj = rng.range(GRID_SIZE);
+    map[oi][oj] = [...GAME_TILES.ore[0]];
+    resources.ore++;
+  }
+
+  // Minimum trees
+  while (resources.tree < 3) {
+    const ti = rng.range(GRID_SIZE);
+    const tj = rng.range(GRID_SIZE);
+    const isEmpty = GAME_TILES.empty.some(e => map[ti][tj][0] === e[0] && map[ti][tj][1] === e[1]);
+    if (isEmpty) {
+      map[ti][tj] = [...params.fixedTree];
+      resources.tree++;
+    }
+  }
+
+  return { map, params, resources };
+}
+
+function describePlot(resources) {
+  const traits = [];
+  if (resources.tree >= 6) traits.push('Forested');
+  else if (resources.tree >= 3) traits.push('Wooded');
+  if (resources.rock >= 2) traits.push('Rocky');
+  if (resources.water >= 1) traits.push('Water Source');
+  if (resources.farmland >= 1) traits.push('Arable');
+  if (resources.ore >= 1) traits.push('Ore Deposit');
+  return traits;
+}
+
+function generateCity(address) {
+  const rng = new AddressRNG(address);
+  const params = getCityParams(rng);
+  const map = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(TILES.grass));
+
+  const pickBuilding = (tier) => {
+    rng.next();
+    const picked = rng.pick(TILES[tier]);
+    if (params.buildingDiversity < 30) {
+      if (tier === 'small') return params.fixedSmall;
+      if (tier === 'medium') return params.fixedMedium;
+      return params.fixedTall;
+    }
+    return picked;
+  };
+
+  const pickTree = () => {
+    rng.next();
+    const picked = rng.pick(TILES.trees);
+    if (params.natureDiversity < 30) return params.fixedTree;
+    return picked;
+  };
+
+  const layoutType = params.density > 180 ? 'dense' : params.density > 100 ? 'urban' : params.density > 50 ? 'suburban' : 'rural';
+  const centerI = 3, centerJ = 3;
+  const distFromCenter = (i, j) => Math.max(Math.abs(i - centerI), Math.abs(j - centerJ));
+
+  if (layoutType === 'dense' || layoutType === 'urban') {
+    const mainRoadRow = params.roadRow;
+    const hasVertical = params.hasVerticalRoad;
+    const vertCol = params.roadCol;
+
+    for (let j = 0; j < GRID_SIZE; j++) {
+      map[mainRoadRow][j] = params.roadTile;
+    }
+
+    if (hasVertical) {
+      for (let i = 0; i < GRID_SIZE; i++) {
+        map[i][vertCol] = params.roadVTile;
+      }
+      map[mainRoadRow][vertCol] = [0, 5];
+    }
+
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (map[i][j] !== TILES.grass) continue;
+
+        const dist = distFromCenter(i, j);
+        const adjacentToRoad = (i === mainRoadRow - 1 || i === mainRoadRow + 1) ||
+                               (hasVertical && (j === vertCol - 1 || j === vertCol + 1));
+
+        if (adjacentToRoad) {
+          if (dist <= 1) {
+            map[i][j] = rng.chance(120) ? rng.pick(TILES.shops) : pickBuilding('tall');
+          } else if (dist <= 2) {
+            map[i][j] = pickBuilding('medium');
+          } else {
+            map[i][j] = rng.chance(100) ? rng.pick(TILES.shops) : pickBuilding('small');
+          }
+        } else {
+          const roll = rng.next();
+          if (roll < 60) {
+            map[i][j] = rng.pick(TILES.roadExtras);
+          } else if (roll < 120) {
+            map[i][j] = pickTree();
+          } else if (dist <= 1) {
+            map[i][j] = pickBuilding('tall');
+          } else {
+            map[i][j] = pickBuilding(dist <= 2 ? 'medium' : 'small');
+          }
+        }
+      }
+    }
+
+  } else if (layoutType === 'suburban') {
+    const roadRows = [2, 4];
+    const roadCols = [2, 4];
+
+    for (const row of roadRows) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        map[row][j] = params.roadTile;
+      }
+    }
+    for (const col of roadCols) {
+      for (let i = 0; i < GRID_SIZE; i++) {
+        if (map[i][col] === TILES.grass) {
+          map[i][col] = params.roadVTile;
+        } else {
+          map[i][col] = [0, 5];
+        }
+      }
+    }
+
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (map[i][j] !== TILES.grass) continue;
+
+        const roll = rng.next();
+        if (roll < 140) {
+          map[i][j] = pickBuilding('small');
+        } else if (roll < 200) {
+          map[i][j] = pickTree();
+        } else {
+          map[i][j] = rng.chance(128) ? TILES.grass : rng.pick(TILES.roadExtras);
+        }
+      }
+    }
+
+    if (params.hasCommercial) {
+      const shopRow = params.commercialRow < 3 ? 1 : 5;
+      for (let j = 1; j < 4; j++) {
+        if (map[shopRow][j] !== TILES.grass || rng.chance(180)) {
+          map[shopRow][j] = rng.pick(TILES.shops);
+        }
+      }
+    }
+
+  } else {
+    if (params.hasHorizontalRoad) {
+      const roadRow = params.roadRow;
+      for (let j = 1; j < GRID_SIZE - 1; j++) {
+        map[roadRow][j] = params.roadTile;
+      }
+    }
+
+    const numBuildings = 3 + rng.range(4);
+    let placed = 0;
+    for (let i = 0; i < GRID_SIZE && placed < numBuildings; i++) {
+      for (let j = 0; j < GRID_SIZE && placed < numBuildings; j++) {
+        if (map[i][j] !== TILES.grass) continue;
+        if (rng.chance(60)) {
+          map[i][j] = pickBuilding('small');
+          placed++;
+        }
+      }
+    }
+
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (map[i][j] !== TILES.grass) continue;
+        if (rng.chance(params.greenery)) {
+          map[i][j] = pickTree();
+        }
+      }
+    }
+  }
+
+  if (params.hasLandmark) {
+    map[params.landmarkRow][params.landmarkCol] = rng.pick(TILES.special);
+  }
+
+  return { map, params };
+}
+
+function describeCity(map) {
+  const TILE_TYPE = {
+    '0,0':'ground','0,1':'pool','0,2':'road','0,3':'road','0,4':'road','0,5':'crosswalk',
+    '0,6':'tree','0,7':'tree','0,8':'parking','0,9':'parking','0,10':'parking','0,11':'parking',
+    '1,0':'streetlamp','1,1':'streetlamp','1,2':'streetlamp','1,3':'streetlamp','1,4':'parking','1,5':'parking',
+    '1,6':'parking','1,7':'parking','1,8':'parking','1,9':'parking','1,10':'parking','1,11':'parking',
+    '2,0':'curve','2,1':'curve','2,2':'curve','2,3':'curve','2,4':'curve','2,5':'curve',
+    '2,6':'ground','2,7':'ground','2,8':'ground','2,9':'ground','2,10':'curve','2,11':'curve',
+    '3,0':'road_v','3,1':'road_v','3,2':'curve','3,3':'ground','3,4':'ground','3,5':'ground',
+    '3,6':'shop','3,7':'ground','3,8':'ground','3,9':'ground','3,10':'highrise','3,11':'shop',
+    '4,0':'parking','4,1':'pool','4,2':'ground','4,3':'ground','4,4':'ground','4,5':'ground',
+    '4,6':'midrise','4,7':'midrise','4,8':'shop','4,9':'highrise','4,10':'highrise','4,11':'highrise',
+    '5,0':'midrise','5,1':'midrise','5,2':'highrise','5,3':'midrise','5,4':'midrise','5,5':'midrise',
+    '5,6':'house','5,7':'midrise','5,8':'house','5,9':'midrise','5,10':'house','5,11':'midrise'
+  };
+
+  const counts = {};
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      const [r, c] = map[i][j];
+      const type = TILE_TYPE[r + ',' + c] || 'unknown';
+      counts[type] = (counts[type] || 0) + 1;
+    }
+  }
+
+  const traits = [];
+  if (counts.highrise) traits.push(counts.highrise + ' Highrise');
+  if (counts.midrise) traits.push(counts.midrise + ' Midrise');
+  if (counts.house) traits.push(counts.house + ' Houses');
+  if (counts.shop) traits.push(counts.shop + ' Shops');
+  if (counts.pool) traits.push(counts.pool + ' Pools');
+  if (counts.tree) traits.push(counts.tree + ' Trees');
+  if (counts.ground) traits.push(counts.ground + ' Ground');
+  const roads = (counts.road || 0) + (counts.road_v || 0) + (counts.crosswalk || 0) + (counts.curve || 0);
+  if (roads) traits.push(roads + ' Roads');
+  const parking = (counts.parking || 0) + (counts.streetlamp || 0);
+  if (parking) traits.push(parking + ' Parking');
+
+  return traits;
+}
+
+function mapToHash(map) {
+  const bytes = new Uint8Array(GRID_SIZE * GRID_SIZE);
+  let idx = 0;
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      bytes[idx++] = map[i][j][0] * TEX_WIDTH + map[i][j][1];
+    }
+  }
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function generateItemHtml(address, mapHash) {
+  var h = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>IsoCity</title><style>*{margin:0;padding:0}body{background:#0a0a14;display:flex;align-items:center;justify-content:center;min-height:100vh}canvas{max-width:100%;max-height:100vh}</style></head><body><canvas id="c" width="910" height="666"></canvas>';
+  h += '<scr' + 'ipt>';
+  h += "const M='" + MANIFEST_TX + "',H='" + mapHash + "',R='https://mainnet.base.org',P='data:chunk,';";
+  h += "async function F(h){const r=await fetch(R,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'eth_getTransactionByHash',params:[h],id:1})});const{result:t}=await r.json();const x=t.input.slice(2),b=new Uint8Array(x.length/2);for(let i=0;i<x.length;i+=2)b[i/2]=parseInt(x.substr(i,2),16);return new TextDecoder().decode(b)}";
+  h += "function D(c){if(!c.startsWith(P))return null;const p=JSON.parse(atob(c.slice(P.length))),b=atob(p.data),d=new Uint8Array(b.length);for(let i=0;i<b.length;i++)d[i]=b.charCodeAt(i);return{part:p.part,data:d}}";
+  h += "async function L(){const m=JSON.parse((await F(M)).slice((await F(M)).indexOf('{')));const c=[];for(const h of m.chunks){const d=D(await F(h));c.push(d)}c.sort((a,b)=>a.part-b.part);const r=new Uint8Array(c.reduce((s,x)=>s+x.data.length,0));let o=0;for(const x of c){r.set(x.data,o);o+=x.data.length}return new Promise(res=>{const i=new Image();i.onload=()=>res(i);i.src=URL.createObjectURL(new Blob([r],{type:'image/png'}))})}";
+  h += "function G(){const b=atob(H),m=[];for(let i=0;i<49;i++){const v=b.charCodeAt(i);m.push([Math.floor(v/12),v%12])}return m}";
+  h += "async function I(){const t=await L(),m=G(),c=document.getElementById('c').getContext('2d');c.fillStyle='#0a0a14';c.fillRect(0,0,910,666);c.translate(455,128);for(let i=0;i<7;i++)for(let j=0;j<7;j++){const[r,l]=m[i*7+j];c.save();c.translate((j-i)*64,(i+j)*32);c.drawImage(t,l*130,r*230,130,230,-65,-130,130,230);c.restore()}}I();";
+  h += '</scr' + 'ipt></body></html>';
+  return h;
+}
+
+function renderCity(canvas, map) {
+  const ctx = canvas.getContext('2d');
+  const scale = canvas.width / 910;
+
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(455, 128);
+
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      const [row, col] = map[i][j];
+      ctx.save();
+      ctx.translate((j - i) * 64, (i + j) * 32);
+      ctx.drawImage(texture, col * 130, row * 230, 130, 230, -65, -130, 130, 230);
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}
+
+// ============================================================================
+// Wallet Connection
+// ============================================================================
+
+// Get the Ethereum provider
+function getProvider() {
+  if (window.phantom?.ethereum) return window.phantom.ethereum;
+  if (window.ethereum) return window.ethereum;
+  return null;
+}
+
+// Sign tx with wallet and broadcast via public RPC (Phantom workaround)
+async function signAndBroadcast(eth, from, to, data) {
+  const rpc = 'https://1rpc.io/eth';
+  const fetchRpc = async (method, params) => {
+    const r = await fetch(rpc, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
+    });
+    return (await r.json()).result;
+  };
+
+  const nonce = await fetchRpc('eth_getTransactionCount', [from, 'latest']);
+  const gasPrice = await fetchRpc('eth_gasPrice', []);
+  const gasLimit = '0x30000';
+
+  const txParams = {
+    from, to, data, nonce, gasPrice, gas: gasLimit, value: '0x0', chainId: '0x1'
+  };
+
+  try {
+    const signed = await eth.request({ method: 'eth_signTransaction', params: [txParams] });
+    const txHash = await fetchRpc('eth_sendRawTransaction', [signed]);
+    return txHash;
+  } catch (e) {
+    console.log('Sign failed, trying direct:', e.message);
+    return await eth.request({ method: 'eth_sendTransaction', params: [txParams] });
+  }
+}
+
+let provider = null;
+
+async function connectWallet() {
+  provider = getProvider();
+
+  if (!provider) {
+    alert('Please install Phantom or MetaMask wallet');
+    return;
+  }
+
+  try {
+    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+    walletAddress = accounts[0];
+
+    document.getElementById('wallet-address').textContent = walletAddress;
+    document.getElementById('wallet-address').classList.remove('disconnected');
+    document.getElementById('connect-btn').textContent = 'Connected';
+    document.getElementById('option-minter-addr').textContent = walletAddress;
+
+    // Get balance
+    const balance = await provider.request({
+      method: 'eth_getBalance',
+      params: [walletAddress, 'latest']
+    });
+    const ethBalance = parseInt(balance, 16) / 1e18;
+    document.getElementById('wallet-balance').textContent = ethBalance.toFixed(4);
+
+    // Enable buttons
+    document.getElementById('create-collection-btn').disabled = false;
+    document.getElementById('preview-btn').disabled = false;
+
+    // Check chain
+    const chainId = await provider.request({ method: 'eth_chainId' });
+    if (chainId !== '0x1') {
+      showStatus('mint-status', 'Warning: Please switch to Ethereum Mainnet', 'info');
+    }
+
+    // Load saved collection
+    loadCollectionFromStorage();
+
+  } catch (err) {
+    console.error(err);
+    alert('Failed to connect wallet: ' + err.message);
+  }
+}
+
+// ============================================================================
+// Collection Management
+// ============================================================================
+
+function loadCollectionFromStorage() {
+  const saved = localStorage.getItem('isocity_collection');
+  if (saved) {
+    const data = JSON.parse(saved);
+    collectionId = data.collectionId;
+    collectionName = data.collectionName || 'IsoCity';
+    itemCount = data.itemCount || 0;
+    mintHistory = data.mintHistory || [];
+    updateCollectionUI();
+    document.getElementById('collection-form').style.display = 'none';
+  }
+}
+
+function saveCollectionToStorage() {
+  localStorage.setItem('isocity_collection', JSON.stringify({
+    collectionId,
+    collectionName,
+    itemCount,
+    mintHistory
+  }));
+}
+
+function showHistory() {
+  if (mintHistory.length === 0) {
+    alert('No mint history saved');
+    return;
+  }
+  let txt = 'Mint History:\\n\\n';
+  mintHistory.forEach((m, i) => {
+    txt += `#${m.index}: ${m.address.slice(0,10)}... -> ${m.txHash}\\n`;
+  });
+  alert(txt);
+  console.log('Mint History:', mintHistory);
+}
+
+function exportHistory() {
+  if (mintHistory.length === 0) {
+    alert('No mint history');
+    return;
+  }
+  const csv = 'index,address,recipient,txHash\\n' +
+    mintHistory.map(m => `${m.index},${m.address},${m.recipient},${m.txHash}`).join('\\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${collectionName}-history.csv`;
+  a.click();
+}
+
+// Export cities as JSON with tx hashes for world.html
+function exportCitiesJson() {
+  if (mintHistory.length === 0) {
+    alert('No minted cities to export');
+    return;
+  }
+
+  const cities = mintHistory.map(m => {
+    const { map } = generateCity(m.address);
+    const traits = describeCity(map);
+    return {
+      name: `${collectionName} #${m.index}`,
+      hash: mapToHash(map),
+      map: map,
+      address: m.address,
+      txHash: m.txHash,
+      recipient: m.recipient,
+      timestamp: m.timestamp,
+      traits: traits
+    };
+  });
+
+  const blob = new Blob([JSON.stringify(cities, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'minted-cities.json';
+  a.click();
+
+  showStatus('mint-status', `Exported ${cities.length} cities to minted-cities.json`, 'success');
+}
+
+function resetCollection() {
+  if (!confirm('Clear collection data? You will need to create a new collection.')) return;
+  localStorage.removeItem('isocity_collection');
+  collectionId = null;
+  collectionName = 'IsoCity';
+  itemCount = 0;
+  document.getElementById('collection-status').innerHTML = '<p style="color:#888">No collection created yet</p>';
+  document.getElementById('collection-info').innerHTML = '';
+  document.getElementById('collection-form').style.display = 'block';
+  document.getElementById('create-collection-btn').textContent = 'Create Collection';
+  document.getElementById('create-collection-btn').disabled = false;
+  document.getElementById('mint-btn').disabled = true;
+}
+
+function importCollection() {
+  const txHash = prompt('Enter collection tx hash (0x...):');
+  if (!txHash || !txHash.match(/^0x[a-fA-F0-9]{64}$/)) {
+    alert('Invalid tx hash');
+    return;
+  }
+  const name = prompt('Collection name:', 'Identcity') || 'Identcity';
+  const count = parseInt(prompt('Current item count:', '1') || '1', 10);
+
+  collectionId = txHash;
+  collectionName = name;
+  itemCount = count;
+  saveCollectionToStorage();
+  updateCollectionUI();
+  document.getElementById('collection-form').style.display = 'none';
+}
+
+function updateCollectionUI() {
+  const statusEl = document.getElementById('collection-status');
+  const infoEl = document.getElementById('collection-info');
+
+  if (collectionId) {
+    statusEl.innerHTML = `<span style="color:#6bf26d">${collectionName}</span> - ${itemCount} items minted`;
+    infoEl.innerHTML = `Collection ID: <a href="https://etherscan.io/tx/${collectionId}" target="_blank" class="tx-link">${collectionId.slice(0, 20)}...</a>`;
+    document.getElementById('create-collection-btn').textContent = 'Collection Created';
+    document.getElementById('create-collection-btn').disabled = true;
+  }
+}
+
+async function createCollection() {
+  if (!walletAddress) {
+    alert('Connect wallet first');
+    return;
+  }
+
+  showStatus('mint-status', 'Creating collection...', 'info');
+
+  try {
+    // Generate city #0 from minter address
+    const { map } = generateCity(walletAddress);
+    const traits = describeCity(map);
+    const mapHash = mapToHash(map);
+
+    // Get form values
+    const collName = document.getElementById('collection-name').value.trim() || 'IsoCity';
+    const collSymbol = document.getElementById('collection-symbol').value.trim() || 'ISOCITY';
+    const collSupply = document.getElementById('collection-supply').value.trim() || '10000';
+    const collDesc = document.getElementById('collection-description').value.trim() || '';
+
+    // Collection metadata
+    const collectionData = {
+      metadata: {
+        name: collName,
+        symbol: collSymbol,
+        max_supply: collSupply,
+        description: collDesc,
+        background_color: "0a0a14",
+        merkle_root: "0x0000000000000000000000000000000000000000000000000000000000000000",
+        initial_owner: walletAddress
+      },
+      item: {
+        item_index: "0",
+        name: `${collName} #0`,
+        background_color: "0a0a14",
+        description: traits.join(' · '),
+        attributes: traits.map(t => ({ trait_type: "Feature", value: t })),
+        merkle_proof: []
+      }
+    };
+
+    // Item content - HTML that renders the city
+    const itemHtml = generateItemHtml(walletAddress, mapHash);
+
+    // Pad to avoid base64 = issue
+    let d;
+    for (let pad = 0; pad < 10; pad++) {
+      collectionData.item.description = traits.join(' · ') + ' '.repeat(pad);
+      d = btoa(JSON.stringify(collectionData));
+      if (!d.includes('=')) break;
+    }
+
+    const htmlBase64 = btoa(unescape(encodeURIComponent(itemHtml)));
+    const dataUri = `data:text/html;rule=esip6;p=erc-721-ethscriptions-collection;op=create_collection_and_add_self;d=${d};base64,${htmlBase64}`;
+
+    // Convert to hex
+    const hexData = '0x' + Array.from(new TextEncoder().encode(dataUri))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Sign and broadcast via public RPC (Phantom workaround)
+    const eth = getProvider();
+    if (!eth) {
+      showStatus('mint-status', 'No wallet detected - install Phantom or MetaMask', 'error');
+      return;
+    }
+
+    const txHash = await signAndBroadcast(eth, walletAddress, walletAddress, hexData);
+
+    showStatus('mint-status', `Collection TX sent: <a href="https://etherscan.io/tx/${txHash}" target="_blank" class="tx-link">${txHash.slice(0, 20)}...</a>`, 'success');
+
+    collectionId = txHash;
+    collectionName = collName;
+    itemCount = 1;
+    saveCollectionToStorage();
+    updateCollectionUI();
+    document.getElementById('collection-form').style.display = 'none';
+
+  } catch (err) {
+    console.error(err);
+    showStatus('mint-status', 'Failed: ' + err.message, 'error');
+  }
+}
+
+// ============================================================================
+// Preview & Mint
+// ============================================================================
+
+function generatePreview() {
+  const addressInput = document.getElementById('target-address').value.trim();
+
+  if (!addressInput.match(/^0x[a-fA-F0-9]{40}$/)) {
+    alert('Invalid address format');
+    return;
+  }
+
+  currentTargetAddress = addressInput;
+
+  // Generate based on mode
+  if (mintMode === 'plot') {
+    const { map, resources } = generatePlot(addressInput);
+    currentMap = map;
+    currentTraits = describePlot(resources);
+  } else {
+    const { map } = generateCity(addressInput);
+    currentMap = map;
+    currentTraits = describeCity(map);
+  }
+
+  // Render preview
+  const canvas = document.getElementById('preview-canvas');
+  renderCity(canvas, currentMap);
+
+  // Show traits
+  document.getElementById('preview-traits').textContent = currentTraits.join(' · ');
+  document.getElementById('option-target-addr').textContent = addressInput;
+
+  // Show preview container
+  document.getElementById('preview-container').style.display = 'block';
+
+  // Enable mint if collection exists
+  document.getElementById('mint-btn').disabled = !collectionId;
+
+  if (!collectionId) {
+    showStatus('mint-status', 'Create collection first before minting', 'info');
+  }
+}
+
+async function mint() {
+  if (!walletAddress || !collectionId || !currentMap) {
+    alert('Missing requirements');
+    return;
+  }
+
+  const recipient = document.querySelector('input[name="recipient"]:checked').value;
+  const toAddress = recipient === 'target' ? currentTargetAddress : walletAddress;
+
+  showStatus('mint-status', `Minting to ${toAddress.slice(0, 10)}...`, 'info');
+
+  try {
+    const mapHash = mapToHash(currentMap);
+
+    // Item metadata
+    const itemData = {
+      collection_id: collectionId,
+      item: {
+        item_index: itemCount.toString(),
+        name: `${collectionName} #${itemCount}`,
+        background_color: "0a0a14",
+        description: currentTraits.join(' · '),
+        attributes: currentTraits.map(t => ({ trait_type: "Feature", value: t })),
+        merkle_proof: []
+      }
+    };
+
+    // Item content - HTML that renders the city
+    const itemHtml = generateItemHtml(currentTargetAddress, mapHash);
+
+    // Pad to avoid base64 = issue
+    let d;
+    for (let pad = 0; pad < 10; pad++) {
+      itemData.item.description = currentTraits.join(' · ') + ' '.repeat(pad);
+      d = btoa(JSON.stringify(itemData));
+      if (!d.includes('=')) break;
+    }
+
+    const htmlBase64 = btoa(unescape(encodeURIComponent(itemHtml)));
+    const dataUri = `data:text/html;rule=esip6;p=erc-721-ethscriptions-collection;op=add_self_to_collection;d=${d};base64,${htmlBase64}`;
+
+    // Convert to hex
+    const hexData = '0x' + Array.from(new TextEncoder().encode(dataUri))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Sign and broadcast via public RPC (Phantom workaround)
+    const eth = getProvider();
+    if (!eth) {
+      showStatus('mint-status', 'No wallet detected - install Phantom or MetaMask', 'error');
+      return;
+    }
+
+    const txHash = await signAndBroadcast(eth, walletAddress, toAddress, hexData);
+
+    showStatus('mint-status', `Minted! TX: <a href="https://etherscan.io/tx/${txHash}" target="_blank" class="tx-link">${txHash.slice(0, 20)}...</a>`, 'success');
+
+    // Save to history with map data
+    mintHistory.push({
+      index: itemCount,
+      address: currentTargetAddress,
+      recipient: toAddress,
+      txHash: txHash,
+      mapHash: mapHash,
+      map: currentMap,
+      traits: currentTraits,
+      timestamp: Date.now()
+    });
+
+    itemCount++;
+    saveCollectionToStorage();
+    updateCollectionUI();
+
+  } catch (err) {
+    console.error(err);
+    showStatus('mint-status', 'Failed: ' + err.message, 'error');
+  }
+}
+
+// ============================================================================
+// Utilities
+// ============================================================================
+
+function showStatus(elementId, message, type) {
+  const el = document.getElementById(elementId);
+  el.innerHTML = message;
+  el.className = 'status ' + type;
+  el.style.display = 'block';
+}
+
+// ============================================================================
+// Init
+// ============================================================================
+
+async function init() {
+  try {
+    texture = await loadSpritesheet();
+    document.getElementById('spritesheet-status').textContent = 'Spritesheet loaded - Connect wallet to begin';
+
+    // Auto-connect if already authorized
+    const p = getProvider();
+    if (p) {
+      const accounts = await p.request({ method: 'eth_accounts' });
+      if (accounts.length > 0) {
+        connectWallet();
+      }
+    }
+  } catch (err) {
+    document.getElementById('spritesheet-status').innerHTML =
+      '<span style="color:#ff6b6b">Failed to load spritesheet: ' + err.message + '</span>';
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>

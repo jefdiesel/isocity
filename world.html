@@ -515,10 +515,15 @@ async function loadFromKV() {
     }
 
     // Load custom names
-    const namesResp = await fetch('https://chainhost.online/api/isocity/names');
-    if (namesResp.ok) {
-      const { names } = await namesResp.json();
-      tileNames = names || {};
+    try {
+      const namesResp = await fetch('https://chainhost.online/api/isocity/names');
+      if (namesResp.ok) {
+        const data = await namesResp.json();
+        tileNames = data.names || data || {};
+        console.log('Loaded tile names:', tileNames);
+      }
+    } catch (e) {
+      console.error('Failed to load names:', e);
     }
   } catch (e) {
     console.error('Failed to load from KV:', e);
@@ -1237,14 +1242,22 @@ function editTile() {
   }
 }
 
+// Get provider (Phantom-aware)
+function getProvider() {
+  if (window.phantom?.ethereum) return window.phantom.ethereum;
+  if (window.ethereum) return window.ethereum;
+  return null;
+}
+
 // Connect wallet
 async function connectWallet() {
-  if (!window.ethereum) {
-    alert('No wallet detected');
+  const provider = getProvider();
+  if (!provider) {
+    alert('No wallet detected - install Phantom or MetaMask');
     return;
   }
   try {
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const accounts = await provider.request({ method: 'eth_requestAccounts' });
     connectedWallet = accounts[0].toLowerCase();
     document.getElementById('wallet-btn').textContent = connectedWallet.slice(0, 6) + '...' + connectedWallet.slice(-4);
     document.getElementById('wallet-btn').style.color = '#c3ff00';
@@ -1402,8 +1415,9 @@ async function init() {
     renderWorld();
 
     // Check for existing wallet connection
-    if (window.ethereum) {
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    const provider = getProvider();
+    if (provider) {
+      const accounts = await provider.request({ method: 'eth_accounts' });
       if (accounts.length > 0) {
         connectedWallet = accounts[0].toLowerCase();
         document.getElementById('wallet-btn').textContent = connectedWallet.slice(0, 6) + '...' + connectedWallet.slice(-4);
@@ -1595,10 +1609,10 @@ function restorePanelStates() {
     document.getElementById('controls-panel').classList.add('minimized');
     document.getElementById('controls-icon').classList.add('visible');
   }
-  if (localStorage.getItem('isocity_contributors_minimized') === 'true') {
-    document.getElementById('contributors-panel').classList.add('minimized');
-    document.getElementById('contributors-icon').classList.add('visible');
-  }
+  // Always show contributors panel - clear any bad state
+  localStorage.removeItem('isocity_contributors_minimized');
+  document.getElementById('contributors-panel').classList.remove('minimized');
+  document.getElementById('contributors-icon').classList.remove('visible');
 }
 
 // Handle hash anchor to focus on specific tile

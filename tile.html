@@ -961,8 +961,9 @@ async function loadGridFromChain(txHash) {
   try {
     // Detect chain
     let rpc = 'https://mainnet.base.org';
-    if (window.ethereum) {
-      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    const provider = getProvider();
+    if (provider) {
+      const chainId = await provider.request({ method: 'eth_chainId' });
       if (chainId === '0x1') rpc = 'https://1rpc.io/eth';
       else if (chainId === '0x5') rpc = 'https://rpc.ankr.com/eth_goerli';
       else if (chainId === '0xaa36a7') rpc = 'https://rpc.ankr.com/eth_sepolia';
@@ -1594,15 +1595,21 @@ function markSaved() {
 // Global eth provider
 let eth = null;
 
+// Get provider (Phantom-aware)
+function getProvider() {
+  if (window.phantom?.ethereum) return window.phantom.ethereum;
+  if (window.ethereum) return window.ethereum;
+  return null;
+}
+
 async function connectWallet() {
-  // Use window.ethereum (works with MetaMask, Phantom injects here too)
-  if (window.ethereum) {
-    eth = window.ethereum;
-    console.log('Using window.ethereum provider');
-  } else {
-    alert('No wallet detected - install MetaMask');
+  // Use Phantom first, then MetaMask
+  eth = getProvider();
+  if (!eth) {
+    alert('No wallet detected - install Phantom or MetaMask');
     return;
   }
+  console.log('Using provider:', eth === window.phantom?.ethereum ? 'Phantom' : 'window.ethereum');
 
   const btn = document.getElementById('connect-btn');
   btn.textContent = 'Connecting...';

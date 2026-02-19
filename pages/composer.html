@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IsoCity Composer - Build Your City</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'SF Mono', Monaco, monospace;
+      background: #0a0a14;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    header {
+      background: #16213e;
+      padding: 16px 20px;
+      border-bottom: 1px solid #333;
+    }
+
+    .header-content {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #e94560;
+      text-decoration: none;
+    }
+
+    nav {
+      display: flex;
+      gap: 24px;
+    }
+
+    nav a {
+      color: #888;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    nav a:hover, nav a.active {
+      color: #fff;
+    }
+
+    .wallet-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .wallet-address {
+      font-size: 12px;
+      color: #c3ff00;
+    }
+
+    /* Main layout */
+    main {
+      display: flex;
+      height: calc(100vh - 60px);
+    }
+
+    /* Sidebar - sprite selector */
+    .sidebar {
+      width: 300px;
+      background: #16213e;
+      border-right: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #333;
+    }
+
+    .sidebar-header h2 {
+      font-size: 14px;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .sprite-filters {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .sprite-filter {
+      padding: 6px 12px;
+      font-size: 11px;
+      font-family: inherit;
+      background: #0a0a14;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #888;
+      cursor: pointer;
+    }
+
+    .sprite-filter:hover { border-color: #666; color: #fff; }
+    .sprite-filter.active { background: #e94560; border-color: #e94560; color: #fff; }
+
+    .sprite-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .sprite-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .sprite-item {
+      background: #0a0a14;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 8px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .sprite-item:hover {
+      border-color: #666;
+    }
+
+    .sprite-item.selected {
+      border-color: #e94560;
+      background: rgba(233, 69, 96, 0.1);
+    }
+
+    .sprite-item canvas {
+      max-width: 100%;
+      height: 80px;
+      object-fit: contain;
+    }
+
+    .sprite-item-id {
+      font-size: 10px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .sprite-item-type {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-top: 4px;
+      display: inline-block;
+    }
+
+    .sprite-item-type.free { background: #1a3c1a; color: #6bf26d; }
+    .sprite-item-type.owned { background: #3c3a1a; color: #f2d66b; }
+    .sprite-item-type.gated { background: #1a3a5c; color: #6db3f2; }
+
+    /* Canvas area */
+    .canvas-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .canvas-toolbar {
+      padding: 12px 20px;
+      background: #1a1a2e;
+      border-bottom: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .toolbar-left {
+      display: flex;
+      gap: 8px;
+    }
+
+    .toolbar-right {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-family: inherit;
+      background: #333;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .tool-btn:hover { background: #444; }
+    .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .tool-btn.primary { background: #e94560; }
+    .tool-btn.primary:hover { background: #ff6b6b; }
+
+    .canvas-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      position: relative;
+      background: #0a0a14;
+    }
+
+    #canvas-wrapper {
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #fg {
+      z-index: 1;
+    }
+
+    /* Status bar */
+    .status-bar {
+      padding: 10px 20px;
+      background: #16213e;
+      border-top: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .status-left {
+      display: flex;
+      gap: 16px;
+    }
+
+    .status-item {
+      display: flex;
+      gap: 6px;
+    }
+
+    .status-label { color: #666; }
+    .status-value { color: #fff; }
+
+    /* Mint modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      display: none;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+    }
+
+    .modal h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .modal-preview {
+      background: #0a0a14;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .modal-preview canvas {
+      max-width: 100%;
+      position: relative;
+    }
+
+    .modal-info {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    .modal-json {
+      background: #0a0a14;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 11px;
+      color: #c3ff00;
+      word-break: break-all;
+      max-height: 150px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    /* Connect button */
+    .connect-btn {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-family: inherit;
+      background: #e94560;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .connect-btn:hover { background: #ff6b6b; }
+
+    /* Status messages */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 200;
+      display: none;
+    }
+    .toast.active { display: block; }
+    .toast.info { background: #1a3a5c; color: #6db3f2; }
+    .toast.success { background: #1a3c1a; color: #6bf26d; }
+    .toast.error { background: #3c1a1a; color: #f26d6d; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      main {
+        flex-direction: column;
+        height: auto;
+      }
+      .sidebar {
+        width: 100%;
+        max-height: 250px;
+        border-right: none;
+        border-bottom: 1px solid #333;
+      }
+      .canvas-area {
+        min-height: 60vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-content">
+    <a href="/index.html" class="logo">IsoCity</a>
+    <nav>
+      <a href="/pages/store.html">Store</a>
+      <a href="/pages/inventory.html">Inventory</a>
+      <a href="/pages/composer.html" class="active">Compose</a>
+    </nav>
+    <div class="wallet-section">
+      <span id="wallet-address" class="wallet-address"></span>
+      <button id="connect-btn" class="connect-btn">Connect Wallet</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>Select Sprite</h2>
+      <div class="sprite-filters">
+        <button class="sprite-filter active" data-filter="all">All</button>
+        <button class="sprite-filter" data-filter="free">Free</button>
+        <button class="sprite-filter" data-filter="owned">Owned</button>
+      </div>
+    </div>
+    <div class="sprite-list">
+      <div id="sprite-grid" class="sprite-grid">
+        <!-- Sprites loaded dynamically -->
+      </div>
+    </div>
+  </aside>
+
+  <section class="canvas-area">
+    <div class="canvas-toolbar">
+      <div class="toolbar-left">
+        <button id="undo-btn" class="tool-btn" title="Undo (Ctrl+Z)">Undo</button>
+        <button id="redo-btn" class="tool-btn" title="Redo (Ctrl+Shift+Z)">Redo</button>
+        <button id="clear-btn" class="tool-btn">Clear All</button>
+      </div>
+      <div class="toolbar-right">
+        <button id="export-btn" class="tool-btn">Export Image</button>
+        <button id="mint-btn" class="tool-btn primary">Mint City</button>
+      </div>
+    </div>
+
+    <div class="canvas-container">
+      <div id="canvas-wrapper">
+        <canvas id="bg"></canvas>
+        <canvas id="fg"></canvas>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-left">
+        <div class="status-item">
+          <span class="status-label">Grid:</span>
+          <span class="status-value">7x7</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Tiles placed:</span>
+          <span id="tiles-count" class="status-value">0</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Selected:</span>
+          <span id="selected-sprite" class="status-value">None</span>
+        </div>
+      </div>
+      <div class="status-right">
+        <span>Right-click to erase</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Mint Modal -->
+<div id="mint-modal" class="modal-overlay">
+  <div class="modal">
+    <h2>Mint Your City</h2>
+    <div class="modal-preview">
+      <canvas id="preview-canvas"></canvas>
+    </div>
+    <div class="modal-info">
+      Your city will be inscribed on-chain as an ethscription. This creates a permanent record of your composition.
+    </div>
+    <div id="city-json" class="modal-json"></div>
+    <div class="modal-actions">
+      <button id="close-modal" class="tool-btn">Cancel</button>
+      <button id="confirm-mint" class="tool-btn primary">Inscribe City</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import IsoCityComposer from '/src/composer.js';
+import IsoCityStore from '/src/store.js';
+
+// Configuration
+const CONFIG = {
+  spriteRegistryAddress: null,
+  itemRegistryAddress: null,
+  tokenAddress: null,
+  rpcUrl: 'https://mainnet.base.org',
+  chainId: 8453
+};
+
+// Texture
+const TEXTURE_URL = '/textures/01_130x66_130x230.png';
+const SPRITE_WIDTH = 130;
+const SPRITE_HEIGHT = 230;
+const TEX_WIDTH = 12;
+const TEX_HEIGHT = 6;
+const TOTAL_SPRITES = TEX_WIDTH * TEX_HEIGHT;
+
+// Initialize
+const store = new IsoCityStore(CONFIG);
+const composer = new IsoCityComposer();
+
+let texture = null;
+let currentFilter = 'all';
+let selectedSpriteId = null;
+
+// DOM elements
+const connectBtn = document.getElementById('connect-btn');
+const walletAddress = document.getElementById('wallet-address');
+const spriteGrid = document.getElementById('sprite-grid');
+const tilesCount = document.getElementById('tiles-count');
+const selectedSprite = document.getElementById('selected-sprite');
+const mintModal = document.getElementById('mint-modal');
+const cityJson = document.getElementById('city-json');
+const toast = document.getElementById('toast');
+
+// Load texture
+async function loadTexture() {
+  return new Promise((resolve, reject) => {
+    texture = new Image();
+    texture.onload = resolve;
+    texture.onerror = reject;
+    texture.src = TEXTURE_URL;
+  });
+}
+
+// Render sprite to canvas
+function renderSprite(spriteId, width = SPRITE_WIDTH, height = SPRITE_HEIGHT) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  const row = Math.floor(spriteId / TEX_WIDTH);
+  const col = spriteId % TEX_WIDTH;
+  const sx = col * SPRITE_WIDTH;
+  const sy = row * SPRITE_HEIGHT;
+
+  ctx.drawImage(texture, sx, sy, SPRITE_WIDTH, SPRITE_HEIGHT, 0, 0, width, height);
+
+  return canvas;
+}
+
+// Show toast message
+function showToast(message, type = 'info') {
+  toast.textContent = message;
+  toast.className = `toast active ${type}`;
+  setTimeout(() => {
+    toast.className = 'toast';
+  }, 3000);
+}
+
+// Update wallet display
+function updateWalletDisplay() {
+  if (store.walletAddress) {
+    const addr = store.walletAddress;
+    walletAddress.textContent = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    connectBtn.textContent = 'Disconnect';
+  } else {
+    walletAddress.textContent = '';
+    connectBtn.textContent = 'Connect Wallet';
+  }
+}
+
+// Render sprite palette
+function renderSpritePalette() {
+  spriteGrid.innerHTML = '';
+
+  // For now, render all available sprites from texture
+  // Later, filter by owned items and accessibility
+  for (let i = 0; i < TOTAL_SPRITES; i++) {
+    const item = document.createElement('div');
+    item.className = 'sprite-item';
+    item.dataset.spriteId = i;
+
+    if (i === selectedSpriteId) {
+      item.classList.add('selected');
+    }
+
+    const canvas = renderSprite(i, 60, 100);
+    item.appendChild(canvas);
+
+    const idLabel = document.createElement('div');
+    idLabel.className = 'sprite-item-id';
+    idLabel.textContent = `#${i}`;
+    item.appendChild(idLabel);
+
+    // Type indicator (free for all base sprites)
+    const typeLabel = document.createElement('span');
+    typeLabel.className = 'sprite-item-type free';
+    typeLabel.textContent = 'Free';
+    item.appendChild(typeLabel);
+
+    item.addEventListener('click', () => selectSprite(i));
+
+    spriteGrid.appendChild(item);
+  }
+}
+
+// Select sprite
+function selectSprite(spriteId) {
+  selectedSpriteId = spriteId;
+  composer.selectSprite(spriteId);
+
+  // Update UI
+  document.querySelectorAll('.sprite-item').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.spriteId) === spriteId);
+  });
+
+  selectedSprite.textContent = `#${spriteId}`;
+}
+
+// Update tiles count
+function updateTilesCount() {
+  let count = 0;
+  for (let i = 0; i < 7; i++) {
+    for (let j = 0; j < 7; j++) {
+      if (composer.grid[i][j].spriteId !== 0) {
+        count++;
+      }
+    }
+  }
+  tilesCount.textContent = count;
+}
+
+// Initialize composer
+async function init() {
+  try {
+    await loadTexture();
+
+    // Initialize composer
+    await composer.init('bg', 'fg', TEXTURE_URL);
+
+    // Set up callbacks
+    composer.onGridChange = () => {
+      updateTilesCount();
+      updateHashState();
+    };
+
+    // Load from hash if present
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+      composer.loadFromHashState(hash);
+      updateTilesCount();
+    }
+
+    // Render sprite palette
+    renderSpritePalette();
+
+    // Initialize store for wallet connection
+    store.onConnect = () => {
+      updateWalletDisplay();
+      showToast('Wallet connected', 'success');
+    };
+
+    store.onDisconnect = () => {
+      updateWalletDisplay();
+    };
+
+    await store.init();
+
+  } catch (err) {
+    console.error('Init error:', err);
+    showToast('Failed to initialize: ' + err.message, 'error');
+  }
+}
+
+// Update URL hash
+function updateHashState() {
+  const state = composer.getHashState();
+  history.replaceState(undefined, undefined, `#${state}`);
+}
+
+// Handle popstate for browser navigation
+window.addEventListener('popstate', () => {
+  const hash = window.location.hash.substring(1);
+  if (hash) {
+    composer.loadFromHashState(hash);
+    updateTilesCount();
+  }
+});
+
+// Event listeners
+connectBtn.addEventListener('click', async () => {
+  if (store.walletAddress) {
+    store.disconnect();
+  } else {
+    try {
+      await store.connectWallet();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+});
+
+document.getElementById('undo-btn').addEventListener('click', () => {
+  composer.undo();
+});
+
+document.getElementById('redo-btn').addEventListener('click', () => {
+  composer.redo();
+});
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  if (confirm('Clear all tiles?')) {
+    composer.clearGrid();
+    showToast('Grid cleared', 'info');
+  }
+});
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  const dataUrl = composer.toDataURL();
+  const link = document.createElement('a');
+  link.download = 'isocity.png';
+  link.href = dataUrl;
+  link.click();
+  showToast('Image exported', 'success');
+});
+
+document.getElementById('mint-btn').addEventListener('click', () => {
+  // Generate preview
+  const previewCanvas = document.getElementById('preview-canvas');
+  const srcCanvas = document.getElementById('bg');
+  previewCanvas.width = srcCanvas.width;
+  previewCanvas.height = srcCanvas.height;
+  const ctx = previewCanvas.getContext('2d');
+  ctx.drawImage(srcCanvas, 0, 0);
+
+  // Generate JSON
+  const cityData = composer.exportCompact();
+  cityJson.textContent = JSON.stringify(cityData, null, 2);
+
+  mintModal.classList.add('active');
+});
+
+document.getElementById('close-modal').addEventListener('click', () => {
+  mintModal.classList.remove('active');
+});
+
+// Get provider (Phantom-aware)
+function getProvider() {
+  if (window.phantom?.ethereum) return window.phantom.ethereum;
+  if (window.ethereum) return window.ethereum;
+  return null;
+}
+
+document.getElementById('confirm-mint').addEventListener('click', async () => {
+  if (!store.walletAddress) {
+    showToast('Please connect wallet first', 'error');
+    return;
+  }
+
+  const cityData = composer.exportCompact();
+  const jsonStr = JSON.stringify(cityData);
+
+  try {
+    // Create ethscription via calldata
+    const { ethers } = await import('https://esm.sh/ethers@6');
+
+    const eth = getProvider();
+    if (!eth) {
+      showToast('No wallet detected', 'error');
+      return;
+    }
+    const provider = new ethers.BrowserProvider(eth);
+    const signer = await provider.getSigner();
+
+    // Convert JSON to hex for calldata
+    const hexData = '0x' + Array.from(new TextEncoder().encode(jsonStr))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Send to self (ethscription pattern)
+    const tx = await signer.sendTransaction({
+      to: store.walletAddress,
+      value: 0,
+      data: hexData
+    });
+
+    showToast('Transaction sent: ' + tx.hash.slice(0, 10) + '...', 'info');
+
+    await tx.wait();
+
+    showToast('City inscribed successfully!', 'success');
+    mintModal.classList.remove('active');
+
+  } catch (err) {
+    console.error('Mint error:', err);
+    showToast('Failed to mint: ' + err.message, 'error');
+  }
+});
+
+// Sprite filter buttons
+document.querySelectorAll('.sprite-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sprite-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderSpritePalette();
+  });
+});
+
+// Click outside modal to close
+mintModal.addEventListener('click', (e) => {
+  if (e.target === mintModal) {
+    mintModal.classList.remove('active');
+  }
+});
+
+// Start
+init();
+</script>
+
+</body>
+</html>
