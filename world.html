@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IsoCity World</title>
+
+  <!-- OG / Twitter Card Meta Tags -->
+  <meta property="og:title" content="IsoCity">
+  <meta property="og:description" content="Explore the collaborative isometric city built on Ethereum. Own tiles, customize buildings, and build together.">
+  <meta property="og:image" content="https://chainhost.online/isocity/og-image.png">
+  <meta property="og:url" content="https://chainhost.online/isocity/world.html">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="IsoCity">
+  <meta name="twitter:description" content="Explore the collaborative isometric city built on Ethereum.">
+  <meta name="twitter:image" content="https://chainhost.online/isocity/og-image.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Mono', Monaco, monospace;
+      background: #0a0a14;
+      color: #fff;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #world-container {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      overflow: hidden;
+    }
+    #world-container.grabbing { cursor: grabbing; }
+    #world {
+      transform-origin: 0 0;
+    }
+    .controls {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(22, 33, 62, 0.95);
+      padding: 16px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .controls h1 {
+      font-size: 18px;
+      color: #e94560;
+      margin-bottom: 5px;
+    }
+    .controls p {
+      font-size: 11px;
+      color: #888;
+    }
+    .zoom-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .zoom-controls button {
+      width: 36px;
+      height: 36px;
+      font-size: 20px;
+      background: #0a0a14;
+      border: 1px solid #333;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .zoom-controls button:hover {
+      background: #1a1a2e;
+      border-color: #e94560;
+    }
+    .zoom-level {
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 12px;
+      color: #666;
+    }
+    .item-panel {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 100;
+      background: rgba(22, 33, 62, 0.95);
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 400px;
+      display: none;
+    }
+    .item-panel.visible { display: block; }
+    .item-panel h2 {
+      color: #e94560;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .item-panel .hash {
+      font-size: 10px;
+      color: #555;
+      word-break: break-all;
+      background: #0a0a14;
+      padding: 8px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+    .item-panel canvas {
+      border-radius: 8px;
+      margin-top: 10px;
+      width: 100%;
+    }
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .close-btn:hover { color: #fff; }
+    .loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .loading h2 { color: #e94560; margin-bottom: 10px; }
+    .loading p { color: #666; font-size: 14px; }
+    .contributors-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      background: rgba(22, 33, 62, 0.95);
+      padding: 16px;
+      border-radius: 12px;
+      width: 260px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .contributors-panel h3 {
+      color: #e94560;
+      font-size: 13px;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .contributors-panel .panel-header {
+      margin-bottom: 12px;
+    }
+    .contributors-panel h3::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #c3ff00;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .contributor-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #333;
+      font-size: 11px;
+    }
+    .contributor-item:last-child { border-bottom: none; }
+    .contributor-addr {
+      color: #c3ff00;
+      font-family: inherit;
+      flex: 1;
+    }
+    .contributor-tile {
+      color: #e94560;
+      font-size: 10px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .contributor-tile:hover {
+      text-decoration: underline;
+    }
+    .contributor-time {
+      color: #555;
+      font-size: 10px;
+    }
+    .contributor-count {
+      background: #e94560;
+      color: #fff;
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+    .leaderboard-toggle {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .leaderboard-toggle button {
+      flex: 1;
+      padding: 6px;
+      font-size: 10px;
+      font-family: inherit;
+      background: #0a0a14;
+      border: 1px solid #333;
+      color: #666;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .leaderboard-toggle button.active {
+      background: #333;
+      color: #fff;
+      border-color: #e94560;
+    }
+    /* Minimizable panels */
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .minimize-btn {
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .minimize-btn:hover { color: #fff; }
+    .controls.minimized, .contributors-panel.minimized {
+      display: none;
+    }
+    .panel-icons {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .panel-icon {
+      width: 44px;
+      height: 44px;
+      background: rgba(22, 33, 62, 0.95);
+      border: 1px solid #333;
+      border-radius: 10px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      color: #e94560;
+      transition: all 0.2s;
+    }
+    .panel-icon:hover {
+      border-color: #e94560;
+      background: rgba(33, 50, 80, 0.95);
+    }
+    .panel-icon.visible { display: flex; }
+    .panel-icon .badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #c3ff00;
+      color: #000;
+      font-size: 9px;
+      padding: 2px 5px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading" class="loading">
+  <h2>Loading World</h2>
+  <p id="load-status">Loading spritesheet...</p>
+</div>
+
+<div class="panel-icons">
+  <div id="controls-icon" class="panel-icon" onclick="toggleControls()" title="Controls">
+    <span>⚙</span>
+  </div>
+</div>
+
+<div id="contributors-icon" class="panel-icon" style="position:fixed;bottom:20px;left:20px;" onclick="toggleContributors()" title="Contributors">
+  <span>👥</span>
+</div>
+
+<div id="controls-panel" class="controls">
+  <div class="panel-header">
+    <h1>IsoCity World</h1>
+    <button class="minimize-btn" onclick="toggleControls()" title="Minimize">−</button>
+  </div>
+  <p>Scroll to zoom, drag to pan<br>Click any city for details</p>
+  <div class="zoom-controls">
+    <button onclick="zoomIn()">+</button>
+    <button onclick="zoomOut()">-</button>
+    <button onclick="resetView()">R</button>
+    <span class="zoom-level" id="zoom-level">100%</span>
+  </div>
+  <div style="margin-top:12px;font-size:11px;color:#666">
+    <span id="city-count">0</span> cities loaded
+  </div>
+  <div style="margin-top:8px">
+    <button onclick="reloadCities()" style="font-size:11px;padding:6px 12px;background:#333">Refresh</button>
+  </div>
+  <div style="margin-top:8px">
+    <input type="text" id="search-input" placeholder="0x... owner address" oninput="searchTiles()" style="width:100%;padding:6px 8px;font-size:11px;background:#0a0a14;border:1px solid #333;border-radius:4px;color:#fff;font-family:inherit">
+    <button onclick="highlightedTiles=[];document.getElementById('search-input').value='';renderWorld();document.getElementById('load-status').textContent=cities.length+' cities loaded'" style="font-size:11px;padding:6px 12px;background:#333;margin-top:4px;width:100%;border:none;border-radius:4px;color:#fff;cursor:pointer">Clear Search</button>
+  </div>
+  <div style="margin-top:12px">
+    <button id="wallet-btn" onclick="connectWallet()" style="font-size:11px;padding:8px 16px;background:#e94560;border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:bold;width:100%">Connect Wallet</button>
+  </div>
+</div>
+
+<div id="item-panel" class="item-panel">
+  <button class="close-btn" onclick="closePanel()">&times;</button>
+  <h2 id="panel-name">City Name</h2>
+  <div id="panel-traits" style="font-size:12px;color:#888;margin-bottom:10px"></div>
+  <canvas id="panel-canvas" width="455" height="333"></canvas>
+  <div class="hash" id="panel-hash"></div>
+  <div id="panel-tx" style="margin-top:8px;font-size:11px"></div>
+  <div id="panel-owner" style="margin-top:8px;font-size:12px;color:#c3ff00"></div>
+  <div id="panel-actions" style="margin-top:12px;display:flex;gap:8px">
+    <button id="btn-edit" onclick="editTile()" style="flex:1;padding:12px;font-size:14px;font-family:inherit;background:#e94560;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:bold;display:none">Edit Tile</button>
+    <a id="btn-share" href="#" target="_blank" style="flex:1;padding:12px;font-size:14px;font-family:inherit;background:#1da1f2;border:none;border-radius:8px;color:#fff;cursor:pointer;font-weight:bold;text-align:center;text-decoration:none">Share on X</a>
+  </div>
+</div>
+
+<div id="contributors-panel" class="contributors-panel">
+  <div class="panel-header">
+    <h3>Active Contributors</h3>
+    <button class="minimize-btn" onclick="toggleContributors()" title="Minimize">−</button>
+  </div>
+  <div class="leaderboard-toggle">
+    <button class="active" onclick="showRecentContributions()">Recent</button>
+    <button onclick="showTopContributors()">Leaderboard</button>
+  </div>
+  <div id="contributors-list">
+    <div style="color:#666;font-size:11px">Loading...</div>
+  </div>
+</div>
+
+<div id="world-container">
+  <canvas id="world"></canvas>
+</div>
+
+<script>
+// Config
+const GRID = 7;        // tiles per city
+const TEX_W = 12;      // textures per row in spritesheet
+const TILE_W = 128;    // tile width in pixels
+const TILE_H = 64;     // tile height in pixels
+const SPRITE_W = 130;  // sprite cell width
+const SPRITE_H = 230;  // sprite cell height
+
+// World layout - arrange cities in a grid
+const WORLD_COLS = 5;  // cities per row
+
+// The 36 original IsoCity ethscriptions - these ARE the tile plots
+// Whoever owns IsoCity #N owns tile #N
+const TILE_TXS = [
+  "0x1e7a1feaa8c4380eb8c4ec5e65421bf2c53770298ded99479c91f4f899bb48bd",
+  "0xd711ece4fce8a031c0dd244044cc280e4239428180cfb6f74ba0645bb489fc84",
+  "0x67cff6315eb29ec69d3b13da87b1d0f7870dd1fdfd4f6aaed2e776fb80e3ee09",
+  "0x982f86cd27d78bb9cc511009927c732e1200cc04fe6d5a369ccd448325f9e3ec",
+  "0xbd3fc7b0834fbed6ae61b864163d85f02f1ef6736d7728189c777e4580e6449b",
+  "0x2bcc3e2ce93cec8d2bf8fc2f40f49f54b1fe704639e32e3ad443a1085dc80b57",
+  "0xec4f581f2dcb293067b1a36507f230b054c65f0a7e010773cb05997382c2da26",
+  "0x4592bbb5e5260791c460416e1aeb90032b39dc140aa9a5828fa3392ecaf18de5",
+  "0xb070460764098980a6484113462a56740cf510d9abc2ea842fdc7a1e3bc3f686",
+  "0xc0dba03dfd19b5cd19901a0aca847aad6d66be1f41a5e85b04c8a27eff8fc330",
+  "0x4be9d04fba321d150201b2d96e62190743b4d97425513293774c77b4b322398f",
+  "0xdf0cf60c311f42460dfbfd83a74cf03a3bc04d0290d3bf90346b8fd3737e837d",
+  "0xa1fc3693972d4a22294defd6fa608f13e375778f3726d612729c34b98fa85f13",
+  "0x614a51fb18efcdaa2110e8a62f06195d107312d699c5efdaaa9a6f6a0fc88ebe",
+  "0x16c096ef57bd329f3fa68915f7b63a3e629668b90f999e7959eeb8c37a1d8f19",
+  "0x8243a6e114145aa4124bdce845ffa7da18b487e343f9e5ac3ec6b749e80003a4",
+  "0x5dabd53c097e191ba374bc543daefbb16d175806f5213e08548df9812d475612",
+  "0x81e8fedd2778eff787d651fd034615d4da1d3c90776b0c0b15def1b9a40299aa",
+  "0xa61c67cc7d2ca99e4ddf4f4c24886f83ecd50ebba8319c65f1fd0acbd3583a8b",
+  "0xcf4aac9e97b70251bd503d4898fe8d94806c1886f97857163bca7d08a9b43fc1",
+  "0xabd3f2075a8af6cc12e085a546fadb9602636e54a669195e59291ecf43189e46",
+  "0x0630f3be4ab057331d91edc02b4e718a566beb8d5d3b7a9d9b50a16a13e851f0",
+  "0x8173243917966829242a34583429936d4bde8493a7d5557c4b5bbff05eb0c5ab",
+  "0xdd65a97da061060bfb1efe54e743ea35f28b090f39b3b5dfd27b4efb1d9384a0",
+  "0x28cf598046ae865511afeee0d11b88d88da1a6a65bee6cfc68d0208917b7723b",
+  "0xc34c68874dd9bd7c069e530c1335a40134141f51b5d7ac137b5c505648785ec5",
+  "0x1a83d5b1607569fa8069357f1b879e130fde44dd8e7157a627edeba8120df5f8",
+  "0x2580cfcc534893c4df4dd6f01ca4fdf03eac227116bee940167c2a987f912c4d",
+  "0x3911825a7991165a4ad9611267f1f4d48d3b9ebeece6a74f44e0381f935a2942",
+  "0x0ab717f95adb0fec2836659f9d270c67fb6ac0b482bd2c20214e69c0c11b2a88",
+  "0xa3a27fd8158c9df605cb8871be6c33303fd2ad9a61bf551e844b25537d9f58ce",
+  "0xd86e359ebb3cd313d5af4ca370d29d71607776cff51493c63f8946241f77bc7b",
+  "0xc317bbf759fca1952133f010b2eb651f73662d890b9dbf5bdb9e0d6a50314fd0",
+  "0xa7a04ec0d65067cf9f675e9a2cf75666a953ecfb66ef74c53f60b440141b7f49",
+  "0x427df4fbb82c2bc2d2c45a0eccb00144b24398e213a8de6db4e6591c61c9fe0c",
+  "0x875cb9b011bb234d821cdd52556af1c2b805e91368275772dee5c0c64c7c7e4f",
+  "0x4e5bc3f70d62f2380ef34ea95f36c7ac85903cc2f1e270969240b8d7676561f0",
+  "0x3264f2e03c71fa1fc9690f7cba68cbd65dd234743cdf0d486c37e182bedfc9a8",
+  "0x38c10d2c7fd10599818b7e8dc9f56f1d6dffc7b581a44ba895c6f4dcfde3d122",
+  "0xd7afb98584eb43360c223bf4b882618212fa8b71befa36894d41d133410000cc"
+];
+
+// State
+let cities = [];
+let tileOwners = {}; // tileIndex => owner address
+let tileUpdates = {}; // tileIndex => update txHash
+let tileNames = {};  // tileIndex => custom name
+let spritesheet = null;
+let zoom = 0.3;
+let panX = 0;
+let panY = 0;
+let isDragging = false;
+let lastX, lastY;
+let connectedWallet = null;
+let selectedCityIndex = -1;
+
+// Calculate city dimensions in isometric space
+const CITY_ISO_W = GRID * TILE_W;  // width of one city in iso coords
+const CITY_ISO_H = GRID * TILE_H;  // height of one city in iso coords
+
+// Load cities from KV
+async function loadCities() {
+  document.getElementById('load-status').textContent = 'Loading from cache...';
+
+  // Load maps, owners, and updates from KV
+  let baseMaps = [];
+  try {
+    const mapsResp = await fetch('https://chainhost.online/api/isocity/maps');
+    if (mapsResp.ok) {
+      const { maps } = await mapsResp.json();
+      // Convert from object to array
+      for (let i = 0; i < 40; i++) {
+        const mapData = maps[i];
+        if (mapData) {
+          const parsed = typeof mapData === 'string' ? JSON.parse(mapData) : mapData;
+          baseMaps[i] = parsed;
+        } else {
+          baseMaps[i] = { map: [], hash: '' };
+        }
+      }
+      console.log('Loaded maps from KV');
+    }
+  } catch (e) {
+    console.error('Failed to load maps from KV:', e);
+  }
+
+  // Use maps as our tiles
+  cities = baseMaps.slice(0, 40).map((city, index) => ({
+    ...city,
+    tileIndex: index,
+    txHash: TILE_TXS[index],
+    name: `Tile #${index}`
+  }));
+
+  // Load owners and updates from KV
+  await loadFromKV();
+
+  // Then refresh from chain in background
+  refreshFromChain();
+
+  return cities;
+}
+
+// Load owners and updates from KV (fast)
+async function loadFromKV() {
+  try {
+    // Load owners
+    const ownersResp = await fetch('https://chainhost.online/api/isocity/owners');
+    if (ownersResp.ok) {
+      const { owners } = await ownersResp.json();
+      for (const [tileId, owner] of Object.entries(owners || {})) {
+        const idx = parseInt(tileId);
+        tileOwners[idx] = owner.toLowerCase();
+        if (cities[idx]) cities[idx].owner = owner.toLowerCase();
+      }
+    }
+
+    // Load updates
+    const updatesResp = await fetch('https://chainhost.online/api/isocity/updates');
+    if (updatesResp.ok) {
+      const { updates } = await updatesResp.json();
+      for (const [tileId, txHash] of Object.entries(updates || {})) {
+        const idx = parseInt(tileId);
+        tileUpdates[idx] = txHash;
+        // Load the actual tile content from the update tx
+        try {
+          const content = await fetchTileFromChain(txHash);
+          if (content && content.map && cities[idx]) {
+            cities[idx].map = content.map;
+            cities[idx].updateTx = txHash;
+            console.log(`Loaded tile ${idx} update from KV`);
+          }
+        } catch (e) {
+          console.error(`Failed to load tile ${idx} content:`, e);
+        }
+      }
+    }
+
+    // Load custom names
+    const namesResp = await fetch('https://chainhost.online/api/isocity/names');
+    if (namesResp.ok) {
+      const { names } = await namesResp.json();
+      tileNames = names || {};
+    }
+  } catch (e) {
+    console.error('Failed to load from KV:', e);
+  }
+}
+
+// Refresh owners from chain in background (slow, but keeps KV updated)
+async function refreshFromChain() {
+  // Don't block - run in background
+  setTimeout(async () => {
+    await fetchAllTileOwners();
+    // Save updated owners to KV
+    try {
+      await fetch('https://chainhost.online/api/isocity/owners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates: tileOwners })
+      });
+    } catch (e) {
+      console.error('Failed to save owners to KV:', e);
+    }
+  }, 100);
+}
+
+// Fetch current owners for all tiles
+async function fetchAllTileOwners() {
+  // Use ethscriptions API to get current owners
+  const batchSize = 6;
+  for (let i = 0; i < TILE_TXS.length; i += batchSize) {
+    const batch = TILE_TXS.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (txHash, idx) => {
+      const tileIndex = i + idx;
+      try {
+        const owner = await getEthscriptionOwner(txHash);
+        if (owner) {
+          tileOwners[tileIndex] = owner.toLowerCase();
+          if (cities[tileIndex]) {
+            cities[tileIndex].owner = owner.toLowerCase();
+          }
+        }
+      } catch (e) {
+        console.error(`Failed to get owner for tile ${tileIndex}:`, e);
+      }
+    }));
+  }
+}
+
+// Get current owner of an ethscription
+async function getEthscriptionOwner(txHash) {
+  // Try ethscriptions.com API first
+  try {
+    const resp = await fetch(`https://api.ethscriptions.com/v2/ethscriptions/${txHash}`);
+    if (resp.ok) {
+      const text = await resp.text();
+      if (text.startsWith('{')) {
+        const data = JSON.parse(text);
+        return data.result?.current_owner || data.current_owner || null;
+      }
+    }
+  } catch (e) {}
+
+  // Fallback: get original recipient from tx
+  try {
+    const resp = await fetch('https://1rpc.io/eth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getTransactionByHash',
+        params: [txHash],
+        id: 1
+      })
+    });
+    const text = await resp.text();
+    if (!text.startsWith('{')) return null;
+    const { result } = JSON.parse(text);
+    return result?.to || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Load tile updates from owners
+async function loadTileUpdates() {
+  // Check localStorage for known updates first
+  const localUpdates = JSON.parse(localStorage.getItem('isocity_tile_updates') || '{}');
+
+  // Hardcoded known updates (verified on-chain)
+  const knownUpdates = {
+    0: '0x4eb87d6e105ecb6857c0c3ad85fd3963599477bcf9fd46ff32980d781d2a0a78'
+  };
+
+  // Also scan chain for updates from tile owners
+  const chainUpdates = await scanForTileUpdates();
+
+  // Merge: known > chain > local
+  const updates = { ...localUpdates, ...chainUpdates, ...knownUpdates };
+
+  // Save merged updates back to localStorage
+  localStorage.setItem('isocity_tile_updates', JSON.stringify(updates));
+
+  for (const [tileIndex, updateTx] of Object.entries(updates)) {
+    const idx = parseInt(tileIndex);
+    if (cities[idx]) {
+      try {
+        const tileData = await fetchTileFromChain(updateTx);
+        if (tileData && tileData.map) {
+          cities[idx].map = tileData.map;
+          cities[idx].updateTxHash = updateTx;
+        }
+      } catch (e) {
+        console.error(`Failed to load update for tile ${idx}:`, e);
+      }
+    }
+  }
+}
+
+// Scan chain for tile updates from owners
+async function scanForTileUpdates() {
+  const updates = {};
+
+  // Group tiles by owner to minimize API calls
+  const ownerTiles = {};
+  for (let i = 0; i < 36; i++) {
+    const owner = tileOwners[i];
+    if (owner) {
+      if (!ownerTiles[owner]) ownerTiles[owner] = [];
+      ownerTiles[owner].push(i);
+    }
+  }
+
+  // Check each owner's recent ethscriptions
+  for (const [owner, tiles] of Object.entries(ownerTiles)) {
+    try {
+      // Get recent ethscriptions created by this owner
+      const resp = await fetch(`https://api.ethscriptions.com/v2/ethscriptions?creator=${owner}&mime_type=text/html&per_page=20`);
+      if (!resp.ok) continue;
+
+      const text = await resp.text();
+      if (!text.startsWith('{')) continue;
+
+      const data = JSON.parse(text);
+      const ethscriptions = data.result || data.ethscriptions || [];
+
+      for (const esc of ethscriptions) {
+        // Check if this is an isocity tile update
+        const txHash = esc.transaction_hash || esc.txHash;
+        if (!txHash) continue;
+
+        // Try to parse it
+        const tileData = await fetchTileFromChain(txHash);
+        if (tileData && tileData.tileId !== undefined) {
+          // Check if this owner owns this tile
+          const tileIdx = tileData.tileId;
+          if (tiles.includes(tileIdx)) {
+            // This is a valid update for a tile they own
+            // Check if it's newer than what we have
+            const existingTx = updates[tileIdx];
+            if (!existingTx) {
+              updates[tileIdx] = txHash;
+              console.log(`Found tile ${tileIdx} update: ${txHash}`);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to scan updates for ${owner}:`, e);
+    }
+  }
+
+  return updates;
+}
+
+// Fetch and parse a tile ethscription from chain
+async function fetchTileFromChain(txHash) {
+  const rpcUrl = 'https://1rpc.io/eth';
+
+  const resp = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'eth_getTransactionByHash',
+      params: [txHash],
+      id: 1
+    })
+  });
+
+  const text = await resp.text();
+  if (!text.startsWith('{')) return null;
+  const { result } = JSON.parse(text);
+  if (!result || !result.input) return null;
+
+  // Decode calldata to string
+  const hex = result.input.slice(2);
+  let dataStr = '';
+  for (let i = 0; i < hex.length; i += 2) {
+    dataStr += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+  }
+
+  // Check if it's an HTML ethscription (handles both with and without extra params)
+  // Use lastIndexOf because collection format has multiple base64 parts
+  if (dataStr.startsWith('data:text/html;')) {
+    const base64Start = dataStr.lastIndexOf('base64,');
+    if (base64Start !== -1) {
+      const base64 = dataStr.slice(base64Start + 7);
+      const html = atob(base64);
+      return parseHtmlEthscription(html, result.to);
+    }
+  }
+
+  // Check for older JSON format
+  if (dataStr.startsWith('data:application/json,')) {
+    const json = JSON.parse(dataStr.slice('data:application/json,'.length));
+    if (json.p === 'isocity') {
+      return parseJsonEthscription(json);
+    }
+  }
+
+  return null;
+}
+
+// Parse HTML ethscription to extract map data
+function parseHtmlEthscription(html, owner) {
+  // New format: H='base64string' where each byte = row*12 + col
+  const hMatch = html.match(/H='([A-Za-z0-9+/=]+)'/);
+  if (hMatch) {
+    const b64 = hMatch[1];
+    const bytes = atob(b64);
+    const map = [];
+    for (let i = 0; i < GRID; i++) {
+      map[i] = [];
+      for (let j = 0; j < GRID; j++) {
+        const idx = i * GRID + j;
+        const v = bytes.charCodeAt(idx);
+        if (v === 255) {
+          map[i][j] = null; // hole
+        } else {
+          const row = Math.floor(v / 12);
+          const col = v % 12;
+          map[i][j] = [row, col];
+        }
+      }
+    }
+    const titleMatch = html.match(/IsoCity Tile #(\d+)/);
+    const tileId = titleMatch ? parseInt(titleMatch[1]) : 0;
+    return { map, name: `Tile #${tileId}`, owner, tileId };
+  }
+
+  // Old format: const M=[sq,sprite,sq,sprite,...];
+  const mapMatch = html.match(/const M=\[([^\]]+)\]/);
+  if (!mapMatch) return null;
+
+  const mapData = mapMatch[1].split(',').map(Number);
+
+  // Convert to 7x7 map format
+  const map = [];
+  for (let i = 0; i < GRID; i++) {
+    map[i] = [];
+    for (let j = 0; j < GRID; j++) {
+      map[i][j] = [0, 0]; // default grass
+    }
+  }
+
+  // Parse pairs: [sq, spriteId, sq, spriteId, ...]
+  for (let k = 0; k < mapData.length; k += 2) {
+    const sq = mapData[k];
+    const spriteId = mapData[k + 1];
+    const i = Math.floor(sq / GRID);
+    const j = sq % GRID;
+    if (i >= 0 && i < GRID && j >= 0 && j < GRID) {
+      // Convert spriteId to [row, col] format
+      const row = Math.floor(spriteId / TEX_W);
+      const col = spriteId % TEX_W;
+      map[i][j] = [row, col];
+    }
+  }
+
+  // Extract tile ID from title if present
+  const titleMatch = html.match(/IsoCity Tile #(\d+)/);
+  const tileId = titleMatch ? parseInt(titleMatch[1]) : 0;
+
+  return {
+    map,
+    name: `Tile #${tileId}`,
+    owner,
+    tileId
+  };
+}
+
+// Parse JSON ethscription (older format)
+function parseJsonEthscription(json) {
+  if (json.op !== 'update' || !json.g) return null;
+
+  const map = [];
+  for (let i = 0; i < GRID; i++) {
+    map[i] = [];
+    for (let j = 0; j < GRID; j++) {
+      map[i][j] = [0, 0]; // default grass
+    }
+  }
+
+  // Parse compact format: "sq:spriteId|sq:spriteId|..."
+  const placements = json.g.split('|');
+  for (const p of placements) {
+    const [sq, spriteId] = p.split(':').map(Number);
+    const i = Math.floor(sq / GRID);
+    const j = sq % GRID;
+    if (i >= 0 && i < GRID && j >= 0 && j < GRID) {
+      const row = Math.floor(spriteId / TEX_W);
+      const col = spriteId % TEX_W;
+      map[i][j] = [row, col];
+    }
+  }
+
+  return {
+    map,
+    name: `Tile #${json.tile || 0}`,
+    tileId: json.tile || 0
+  };
+}
+
+// Add a tile tx to track
+function addTileToTrack(txHash, owner, tileId) {
+  const tiles = JSON.parse(localStorage.getItem('isocity_tiles') || '[]');
+  if (!tiles.find(t => t.txHash === txHash)) {
+    tiles.push({ txHash, owner, tileId, addedAt: Date.now() });
+    localStorage.setItem('isocity_tiles', JSON.stringify(tiles));
+  }
+}
+// Reload cities
+async function reloadCities() {
+  await loadCities();
+  document.getElementById('city-count').textContent = cities.length;
+  renderWorld();
+}
+
+// Search existing tiles by owner address
+let highlightedTiles = [];
+
+function searchTiles() {
+  const input = document.getElementById('search-input');
+  const query = input.value.trim().toLowerCase();
+
+  if (!query) {
+    highlightedTiles = [];
+    renderWorld();
+    return;
+  }
+
+  // Find tiles owned by this address
+  const matches = [];
+  cities.forEach((city, index) => {
+    const owner = city.owner || tileOwners[index];
+    if (owner && owner.toLowerCase().includes(query)) {
+      matches.push(index);
+    }
+  });
+
+  if (matches.length > 0) {
+    highlightedTiles = matches;
+    // Pan to first match
+    const pos = getCityWorldPos(matches[0]);
+    panX = -pos.x * zoom;
+    panY = -pos.y * zoom;
+    renderWorld();
+    document.getElementById('load-status').textContent = `Found ${matches.length} tile(s)`;
+  } else {
+    highlightedTiles = [];
+    renderWorld();
+    document.getElementById('load-status').textContent = 'No tiles found';
+  }
+}
+
+// Show tiles owned by connected wallet
+function showMyTiles() {
+  if (!connectedWallet) return;
+
+  const matches = [];
+  cities.forEach((city, index) => {
+    const owner = city.owner || tileOwners[index];
+    if (owner && owner.toLowerCase() === connectedWallet.toLowerCase()) {
+      matches.push(index);
+    }
+  });
+
+  highlightedTiles = matches;
+
+  if (matches.length > 0) {
+    // Pan to first owned tile
+    const pos = getCityWorldPos(matches[0]);
+    panX = -pos.x * zoom;
+    panY = -pos.y * zoom;
+    document.getElementById('load-status').textContent = `You own ${matches.length} tile(s)`;
+  } else {
+    document.getElementById('load-status').textContent = 'You don\'t own any tiles';
+  }
+
+  renderWorld();
+}
+
+// Load spritesheet
+function loadSpritesheet() {
+  return new Promise((resolve, reject) => {
+    spritesheet = new Image();
+    spritesheet.onload = () => resolve(spritesheet);
+    spritesheet.onerror = reject;
+    spritesheet.src = 'textures/01_130x66_130x230.png';
+  });
+}
+
+// Get city position in world (isometric coordinates)
+function getCityWorldPos(index) {
+  const col = index % WORLD_COLS;
+  const row = Math.floor(index / WORLD_COLS);
+
+  // Offset each city so edges touch
+  // In isometric: moving right = +x in screen, moving down = +y
+  // Each city is GRID tiles wide/tall
+  const offsetX = (col - row) * (GRID * TILE_W / 2);
+  const offsetY = (col + row) * (GRID * TILE_H / 2);
+
+  return { x: offsetX, y: offsetY };
+}
+
+// Render single city at offset
+function renderCity(ctx, map, offsetX, offsetY) {
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      const cell = map[i][j];
+      if (!cell) continue; // skip holes (null)
+      const [row, col] = cell;
+      const screenX = offsetX + (j - i) * TILE_W / 2;
+      const screenY = offsetY + (i + j) * TILE_H / 2;
+
+      ctx.drawImage(
+        spritesheet,
+        col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H,
+        screenX - SPRITE_W / 2, screenY - SPRITE_H + TILE_H,
+        SPRITE_W, SPRITE_H
+      );
+    }
+  }
+}
+
+// Render entire world
+function renderWorld() {
+  const canvas = document.getElementById('world');
+  const container = document.getElementById('world-container');
+  const ctx = canvas.getContext('2d');
+
+  // Set canvas to container size
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+
+  // Clear
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Apply zoom and pan
+  ctx.save();
+  ctx.translate(canvas.width / 2 + panX, canvas.height / 3 + panY);
+  ctx.scale(zoom, zoom);
+
+  // Render each city
+  cities.forEach((city, index) => {
+    const pos = getCityWorldPos(index);
+    renderCity(ctx, city.map, pos.x, pos.y);
+  });
+
+  // Draw highlights on searched/owned tiles
+  if (highlightedTiles.length > 0) {
+    ctx.strokeStyle = '#c3ff00';
+    ctx.lineWidth = 3 / zoom;
+    highlightedTiles.forEach(index => {
+      const pos = getCityWorldPos(index);
+      // Draw diamond outline around tile
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y - 10);
+      ctx.lineTo(pos.x + GRID * TILE_W / 2 + 10, pos.y + GRID * TILE_H / 2);
+      ctx.lineTo(pos.x, pos.y + GRID * TILE_H + 10);
+      ctx.lineTo(pos.x - GRID * TILE_W / 2 - 10, pos.y + GRID * TILE_H / 2);
+      ctx.closePath();
+      ctx.stroke();
+    });
+  }
+
+  ctx.restore();
+
+  // Update zoom display
+  document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
+}
+
+// Find which city was clicked
+function getCityAtPoint(screenX, screenY) {
+  const canvas = document.getElementById('world');
+
+  // Convert screen coords to world coords
+  const worldX = (screenX - canvas.width / 2 - panX) / zoom;
+  const worldY = (screenY - canvas.height / 3 - panY) / zoom;
+
+  // Check each city
+  for (let index = 0; index < cities.length; index++) {
+    const pos = getCityWorldPos(index);
+
+    // City bounds in world coords (rough isometric bounding box)
+    const minX = pos.x - GRID * TILE_W / 2;
+    const maxX = pos.x + GRID * TILE_W / 2;
+    const minY = pos.y;
+    const maxY = pos.y + GRID * TILE_H;
+
+    if (worldX >= minX && worldX <= maxX && worldY >= minY && worldY <= maxY) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+// Render city in panel
+function renderPanelCity(city) {
+  const canvas = document.getElementById('panel-canvas');
+  const ctx = canvas.getContext('2d');
+
+  const scale = canvas.width / 910;
+
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Validate map structure
+  if (!city.map || !Array.isArray(city.map) || city.map.length !== GRID) {
+    console.error('Invalid map structure:', city.map);
+    return;
+  }
+
+  ctx.save();
+  ctx.translate(canvas.width / 2, TILE_H * 2 * scale);
+  ctx.scale(scale, scale);
+
+  for (let i = 0; i < GRID; i++) {
+    if (!Array.isArray(city.map[i])) continue;
+    for (let j = 0; j < GRID; j++) {
+      const cell = city.map[i][j];
+      if (!cell || !Array.isArray(cell)) continue; // skip holes and invalid cells
+      const [row, col] = cell;
+      if (typeof row !== 'number' || typeof col !== 'number') continue;
+      const screenX = (j - i) * TILE_W / 2;
+      const screenY = (i + j) * TILE_H / 2;
+      ctx.drawImage(
+        spritesheet,
+        col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H,
+        screenX - SPRITE_W / 2, screenY - SPRITE_H + TILE_H,
+        SPRITE_W, SPRITE_H
+      );
+    }
+  }
+  ctx.restore();
+}
+
+// Fetch tx recipient (owner)
+async function fetchTxRecipient(txHash) {
+  try {
+    const resp = await fetch('https://1rpc.io/eth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getTransactionByHash',
+        params: [txHash],
+        id: 1
+      })
+    });
+    const text = await resp.text();
+    if (!text.startsWith('{')) return null;
+    const { result } = JSON.parse(text);
+    return result?.to || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Resolve ENS name
+async function resolveENS(address) {
+  try {
+    // Reverse lookup: addr.reverse -> name
+    const node = address.slice(2).toLowerCase() + '.addr.reverse';
+    const resp = await fetch('https://1rpc.io/eth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_call',
+        params: [{
+          to: '0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63', // Universal Resolver
+          data: '0x9061b923' + encodeNode(node) // resolve(bytes,bytes)
+        }, 'latest'],
+        id: 1
+      })
+    });
+    const text = await resp.text();
+    if (text.startsWith('{')) {
+      const { result } = JSON.parse(text);
+      if (result && result !== '0x' && result.length > 66) {
+        return decodeENSName(result);
+      }
+    }
+  } catch (e) {}
+
+  // Fallback: try public ENS API
+  try {
+    const resp = await fetch(`https://api.ensideas.com/ens/resolve/${address}`);
+    const text = await resp.text();
+    if (text.startsWith('{')) {
+      const data = JSON.parse(text);
+      if (data.name) return data.name;
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+function encodeNode(name) {
+  // Simple namehash encoding placeholder - use API fallback instead
+  return '0'.repeat(64);
+}
+
+function decodeENSName(hex) {
+  try {
+    if (hex.length < 130) return null;
+    const len = parseInt(hex.slice(66, 130), 16);
+    if (len === 0 || len > 100) return null;
+    let name = '';
+    for (let i = 0; i < len * 2; i += 2) {
+      const byte = parseInt(hex.slice(130 + i, 132 + i), 16);
+      if (byte > 0) name += String.fromCharCode(byte);
+    }
+    return name.includes('.') ? name : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Show city details panel
+async function showCityPanel(index) {
+  selectedCityIndex = index;
+  const city = cities[index];
+  const displayName = tileNames[index] || `Tile #${index}`;
+  document.getElementById('panel-name').textContent = displayName;
+  document.getElementById('panel-hash').textContent = 'Ethscription: ' + city.txHash.slice(0, 10) + '...' + city.txHash.slice(-8);
+
+  const traitsEl = document.getElementById('panel-traits');
+  traitsEl.textContent = city.traits?.join(' · ') || '';
+
+  const txEl = document.getElementById('panel-tx');
+  const ownerEl = document.getElementById('panel-owner');
+  const editBtn = document.getElementById('btn-edit');
+  const shareBtn = document.getElementById('btn-share');
+
+  // Always set up share button
+  const shareUrl = `https://chainhost.online/api/isocity/share/${index}`;
+  shareBtn.href = `https://x.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`;
+
+  // Hide edit button by default
+  editBtn.style.display = 'none';
+
+  // Show ethscription link
+  txEl.innerHTML = `<a href="https://etherscan.io/tx/${city.txHash}" target="_blank" style="color:#c3ff00;text-decoration:none">View Ethscription</a>`;
+
+  // Show owner
+  const owner = city.owner || tileOwners[index];
+  if (owner) {
+    const shortAddr = owner.slice(0, 8) + '...' + owner.slice(-6);
+
+    // Check if connected wallet owns this tile
+    if (connectedWallet && owner.toLowerCase() === connectedWallet.toLowerCase()) {
+      editBtn.style.display = 'block';
+    }
+
+    // Try ENS
+    const ens = await resolveENS(owner);
+    if (ens) {
+      ownerEl.innerHTML = `<span style="color:#e94560">Owner:</span> <a href="https://etherscan.io/address/${owner}" target="_blank" style="color:#c3ff00;text-decoration:none">${ens}</a>`;
+    } else {
+      ownerEl.innerHTML = `<span style="color:#e94560">Owner:</span> <a href="https://etherscan.io/address/${owner}" target="_blank" style="color:#c3ff00;text-decoration:none">${shortAddr}</a>`;
+    }
+
+    // Show update tx if exists
+    if (city.updateTxHash) {
+      txEl.innerHTML += `<br><a href="https://etherscan.io/tx/${city.updateTxHash}" target="_blank" style="color:#888;text-decoration:none;font-size:10px">Latest update</a>`;
+    }
+  } else {
+    ownerEl.innerHTML = '<span style="color:#666">Loading owner...</span>';
+    // Try to fetch owner now
+    const fetchedOwner = await getEthscriptionOwner(city.txHash);
+    if (fetchedOwner) {
+      city.owner = fetchedOwner.toLowerCase();
+      tileOwners[index] = fetchedOwner.toLowerCase();
+      // Recursively update panel
+      showCityPanel(index);
+      return;
+    }
+  }
+
+  document.getElementById('item-panel').classList.add('visible');
+  renderPanelCity(city);
+}
+
+function closePanel() {
+  document.getElementById('item-panel').classList.remove('visible');
+  selectedCityIndex = -1;
+}
+
+// Edit tile - navigate to tile editor
+function editTile() {
+  if (selectedCityIndex >= 0) {
+    window.location.href = `tile.html?id=${selectedCityIndex}`;
+  }
+}
+
+// Connect wallet
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert('No wallet detected');
+    return;
+  }
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    connectedWallet = accounts[0].toLowerCase();
+    document.getElementById('wallet-btn').textContent = connectedWallet.slice(0, 6) + '...' + connectedWallet.slice(-4);
+    document.getElementById('wallet-btn').style.color = '#c3ff00';
+    // Show owned tiles
+    showMyTiles();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// Zoom controls
+function zoomIn() {
+  zoom = Math.min(zoom * 1.3, 3);
+  renderWorld();
+}
+
+function zoomOut() {
+  zoom = Math.max(zoom / 1.3, 0.1);
+  renderWorld();
+}
+
+function resetView() {
+  zoom = 0.3;
+  panX = 0;
+  panY = 0;
+  renderWorld();
+}
+
+function zoomToTile(tileIndex) {
+  const canvas = document.getElementById('world');
+  const pos = getCityWorldPos(tileIndex);
+  zoom = 0.6;
+  panX = -pos.x * zoom + canvas.width / 4;
+  panY = -pos.y * zoom;
+  renderWorld();
+  showCityPanel(tileIndex);
+}
+
+// Event handlers
+function setupEvents() {
+  const container = document.getElementById('world-container');
+  const canvas = document.getElementById('world');
+
+  // Mouse wheel zoom
+  container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    zoom = Math.max(0.1, Math.min(3, zoom * delta));
+    renderWorld();
+  });
+
+  // Pan with drag
+  container.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    container.classList.add('grabbing');
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    panX += e.clientX - lastX;
+    panY += e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    renderWorld();
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    container.classList.remove('grabbing');
+  });
+
+  // Click to select city
+  canvas.addEventListener('click', (e) => {
+    if (Math.abs(e.clientX - lastX) > 5 || Math.abs(e.clientY - lastY) > 5) return; // ignore drags
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const cityIndex = getCityAtPoint(x, y);
+    if (cityIndex >= 0) {
+      showCityPanel(cityIndex);
+    }
+  });
+
+  // Track click start for drag detection
+  canvas.addEventListener('mousedown', (e) => {
+    lastX = e.clientX;
+    lastY = e.clientY;
+  });
+
+  // Resize handler
+  window.addEventListener('resize', renderWorld);
+
+  // Touch support
+  let lastTouchDist = 0;
+
+  container.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      lastTouchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  });
+
+  container.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+      panX += e.touches[0].clientX - lastX;
+      panY += e.touches[0].clientY - lastY;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+      renderWorld();
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (lastTouchDist > 0) {
+        zoom = Math.max(0.1, Math.min(3, zoom * (dist / lastTouchDist)));
+        renderWorld();
+      }
+      lastTouchDist = dist;
+    }
+  });
+
+  container.addEventListener('touchend', () => {
+    isDragging = false;
+    lastTouchDist = 0;
+  });
+}
+
+// Initialize
+async function init() {
+  const statusEl = document.getElementById('load-status');
+
+  try {
+    statusEl.textContent = 'Loading cities...';
+    await loadCities();
+
+    statusEl.textContent = 'Loading spritesheet...';
+    await loadSpritesheet();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('city-count').textContent = cities.length;
+
+    setupEvents();
+    renderWorld();
+
+    // Check for existing wallet connection
+    if (window.ethereum) {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts.length > 0) {
+        connectedWallet = accounts[0].toLowerCase();
+        document.getElementById('wallet-btn').textContent = connectedWallet.slice(0, 6) + '...' + connectedWallet.slice(-4);
+        document.getElementById('wallet-btn').style.color = '#c3ff00';
+      }
+    }
+
+    // Load contributions panel
+    loadContributions();
+
+    // Check for hash anchor to focus on a specific tile (e.g., #5)
+    checkHashAnchor();
+
+  } catch (error) {
+    statusEl.textContent = 'Error: ' + error.message;
+    console.error(error);
+  }
+}
+
+// Contributions tracking
+let contributions = [];
+let contributionsView = 'recent'; // 'recent' or 'leaderboard'
+let ensNames = {}; // address => ENS name cache
+
+async function loadContributions() {
+  try {
+    const resp = await fetch('https://chainhost.online/api/isocity/contributions');
+    if (resp.ok) {
+      const data = await resp.json();
+      contributions = data.contributions || [];
+      renderContributors();
+      // Load ENS names in background
+      resolveEnsNames();
+    }
+  } catch (e) {
+    console.error('Failed to load contributions:', e);
+    document.getElementById('contributors-list').innerHTML =
+      '<div style="color:#666;font-size:11px">Could not load</div>';
+  }
+}
+
+// Resolve ENS names for all contributor addresses
+async function resolveEnsNames() {
+  const addresses = [...new Set(contributions.map(c => c.address.toLowerCase()))];
+  for (const addr of addresses) {
+    if (ensNames[addr]) continue; // Already cached
+    try {
+      const name = await lookupEns(addr);
+      if (name) {
+        ensNames[addr] = name;
+        renderContributors(); // Re-render with new name
+      }
+    } catch (e) {
+      // Ignore lookup failures
+    }
+  }
+}
+
+// Lookup ENS name for an address
+async function lookupEns(address) {
+  try {
+    // Use ENS reverse resolver via eth_call
+    const res = await fetch('https://1rpc.io/eth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_call',
+        params: [{
+          to: '0x3671ae578e63fdf66ad4f3e12cc0c0d71ac7510c', // ENS reverse registrar
+          data: '0x691f3431' + address.slice(2).toLowerCase().padStart(64, '0')
+        }, 'latest']
+      })
+    });
+    const { result } = await res.json();
+    if (!result || result === '0x' || result.length < 130) return null;
+    // Decode string from ABI
+    const len = parseInt(result.slice(130, 194), 16);
+    if (len === 0 || len > 100) return null;
+    const hex = result.slice(194, 194 + len * 2);
+    const name = decodeURIComponent(hex.replace(/(.{2})/g, '%$1'));
+    return name.endsWith('.eth') ? name : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderContributors() {
+  const listEl = document.getElementById('contributors-list');
+
+  if (contributions.length === 0) {
+    listEl.innerHTML = '<div style="color:#666;font-size:11px">No contributions yet</div>';
+    return;
+  }
+
+  if (contributionsView === 'recent') {
+    // Show most recent contributions
+    const recent = [...contributions]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 10);
+
+    listEl.innerHTML = recent.map(c => {
+      const shortAddr = c.address.slice(0, 6) + '...' + c.address.slice(-4);
+      const displayName = ensNames[c.address.toLowerCase()] || shortAddr;
+      const timeAgo = getTimeAgo(c.timestamp);
+      const tileName = c.name || tileNames[c.tileId] || `Tile #${c.tileId}`;
+      return `
+        <div class="contributor-item">
+          <span class="contributor-addr" title="${c.address}">${displayName}</span>
+          <a href="#" class="contributor-tile" onclick="zoomToTile(${c.tileId});return false;" title="Tile #${c.tileId}">${tileName}</a>
+          <span class="contributor-time">${timeAgo}</span>
+        </div>
+      `;
+    }).join('');
+  } else {
+    // Show leaderboard (grouped by address with counts)
+    const counts = {};
+    contributions.forEach(c => {
+      const addr = c.address.toLowerCase();
+      counts[addr] = (counts[addr] || 0) + 1;
+    });
+
+    const sorted = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    listEl.innerHTML = sorted.map(([addr, count], i) => {
+      const shortAddr = addr.slice(0, 6) + '...' + addr.slice(-4);
+      const displayName = ensNames[addr.toLowerCase()] || shortAddr;
+      return `
+        <div class="contributor-item">
+          <span style="color:#555;width:16px">#${i + 1}</span>
+          <span class="contributor-addr" title="${addr}">${displayName}</span>
+          <span class="contributor-count">${count}</span>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function showRecentContributions() {
+  contributionsView = 'recent';
+  document.querySelectorAll('.leaderboard-toggle button').forEach((btn, i) => {
+    btn.classList.toggle('active', i === 0);
+  });
+  renderContributors();
+}
+
+function showTopContributors() {
+  contributionsView = 'leaderboard';
+  document.querySelectorAll('.leaderboard-toggle button').forEach((btn, i) => {
+    btn.classList.toggle('active', i === 1);
+  });
+  renderContributors();
+}
+
+function getTimeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+  return Math.floor(seconds / 86400) + 'd ago';
+}
+
+// Refresh contributions every 30 seconds
+setInterval(loadContributions, 30000);
+
+// Panel toggle functions
+function toggleControls() {
+  const panel = document.getElementById('controls-panel');
+  const icon = document.getElementById('controls-icon');
+  const isMinimized = panel.classList.toggle('minimized');
+  icon.classList.toggle('visible', isMinimized);
+  localStorage.setItem('isocity_controls_minimized', isMinimized);
+}
+
+function toggleContributors() {
+  const panel = document.getElementById('contributors-panel');
+  const icon = document.getElementById('contributors-icon');
+  const isMinimized = panel.classList.toggle('minimized');
+  icon.classList.toggle('visible', isMinimized);
+  localStorage.setItem('isocity_contributors_minimized', isMinimized);
+}
+
+// Restore panel states from localStorage
+function restorePanelStates() {
+  if (localStorage.getItem('isocity_controls_minimized') === 'true') {
+    document.getElementById('controls-panel').classList.add('minimized');
+    document.getElementById('controls-icon').classList.add('visible');
+  }
+  if (localStorage.getItem('isocity_contributors_minimized') === 'true') {
+    document.getElementById('contributors-panel').classList.add('minimized');
+    document.getElementById('contributors-icon').classList.add('visible');
+  }
+}
+
+// Handle hash anchor to focus on specific tile
+function checkHashAnchor() {
+  const hash = window.location.hash;
+  if (hash && hash.startsWith('#')) {
+    const tileId = parseInt(hash.slice(1));
+    if (!isNaN(tileId) && tileId >= 0 && tileId < cities.length) {
+      // Small delay to ensure rendering is complete
+      setTimeout(() => {
+        zoomToTile(tileId);
+        // Update OG meta tags dynamically for this tile
+        updateMetaForTile(tileId);
+      }, 100);
+    }
+  }
+}
+
+// Update meta tags for specific tile (for better sharing)
+function updateMetaForTile(tileId) {
+  const tileName = tileNames[tileId] || `Tile #${tileId}`;
+  document.title = `${tileName} - IsoCity`;
+
+  // Update OG tags
+  const ogTitle = document.querySelector('meta[property="og:title"]');
+  const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+  if (ogTitle) ogTitle.setAttribute('content', `${tileName} - IsoCity`);
+  if (twitterTitle) twitterTitle.setAttribute('content', `${tileName} - IsoCity`);
+}
+
+// Listen for hash changes
+window.addEventListener('hashchange', checkHashAnchor);
+
+restorePanelStates();
+init();
+</script>
+
+</body>
+</html>

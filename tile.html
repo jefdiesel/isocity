@@ -1,0 +1,2180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IsoCity - Edit Tile</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'SF Mono', Monaco, monospace;
+      background: #0a0a14;
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      background: #16213e;
+      padding: 12px 20px;
+      border-bottom: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 56px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    .back-btn:hover { color: #fff; }
+
+    .tile-info h1 {
+      font-size: 16px;
+      color: #e94560;
+    }
+
+    .tile-info .owner {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .unsaved-badge {
+      font-size: 11px;
+      color: #f2d66b;
+      background: rgba(242, 214, 107, 0.1);
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    .unsaved-badge.visible { display: block; }
+
+    .btn {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-family: inherit;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary {
+      background: #333;
+      color: #fff;
+    }
+    .btn-secondary:hover { background: #444; }
+
+    .btn-primary {
+      background: #e94560;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #ff6b6b; }
+    .btn-primary:disabled { background: #444; cursor: not-allowed; }
+
+    .wallet-address {
+      font-size: 11px;
+      color: #c3ff00;
+    }
+
+    /* Main layout */
+    main {
+      display: flex;
+      height: calc(100vh - 56px);
+    }
+
+    /* Item drawer */
+    .drawer {
+      width: 220px;
+      background: #16213e;
+      border-right: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .drawer-tabs {
+      display: flex;
+      border-bottom: 1px solid #333;
+    }
+
+    .drawer-tab {
+      flex: 1;
+      padding: 12px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      background: transparent;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .drawer-tab:hover { color: #888; }
+    .drawer-tab.active {
+      color: #e94560;
+      border-bottom-color: #e94560;
+    }
+    .drawer-tab:disabled {
+      color: #444;
+      cursor: not-allowed;
+    }
+
+    .drawer-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .drawer-section {
+      margin-bottom: 16px;
+    }
+
+    .drawer-section-title {
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .drawer-item {
+      background: #0a0a14;
+      border: 2px solid #333;
+      border-radius: 8px;
+      padding: 6px;
+      cursor: grab;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .drawer-item:hover {
+      border-color: #666;
+    }
+
+    .drawer-item.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+    }
+
+    .drawer-item canvas {
+      width: 70px;
+      height: 90px;
+      object-fit: contain;
+    }
+
+    .drawer-item-label {
+      font-size: 9px;
+      color: #666;
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    /* Canvas area */
+    .canvas-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .canvas-toolbar {
+      padding: 8px 16px;
+      background: #1a1a2e;
+      border-bottom: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .toolbar-info {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tool-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      font-family: inherit;
+      background: #333;
+      border: none;
+      border-radius: 4px;
+      color: #888;
+      cursor: pointer;
+    }
+    .tool-btn:hover { background: #444; color: #fff; }
+    .tool-btn.active { background: #e94560; color: #fff; }
+
+    .canvas-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a14;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #canvas-wrapper {
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    #fg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    /* Drop zone highlight */
+    .drop-zone-active #fg {
+      cursor: crosshair;
+    }
+
+    /* Drag preview */
+    .drag-preview {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.8;
+      transform: translate(-50%, -50%);
+      display: none;
+    }
+
+    .drag-preview.visible {
+      display: block;
+    }
+
+    /* Status bar */
+    .status-bar {
+      padding: 8px 16px;
+      background: #16213e;
+      border-top: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #666;
+    }
+
+    /* Toast notifications */
+    .toast {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .toast.visible { opacity: 1; }
+    .toast.info { background: #1a3a5c; color: #6db3f2; }
+    .toast.success { background: #1a3c1a; color: #6bf26d; }
+    .toast.error { background: #3c1a1a; color: #f26d6d; }
+
+    /* Mint modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal-overlay.visible { display: flex; }
+
+    .modal {
+      background: #16213e;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+    }
+
+    .modal h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: #e94560;
+    }
+
+    .modal-preview {
+      background: #0a0a14;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .modal-preview canvas {
+      max-width: 100%;
+    }
+
+    .modal-info {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .modal-name {
+      margin-bottom: 16px;
+    }
+    .modal-name label {
+      display: block;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 6px;
+    }
+    .modal-name input {
+      width: 100%;
+      padding: 10px 12px;
+      background: #0a0a14;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 16px;
+      font-family: inherit;
+    }
+    .modal-name input:focus {
+      outline: none;
+      border-color: #c3ff00;
+    }
+
+    .modal-json {
+      background: #0a0a14;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 10px;
+      color: #c3ff00;
+      word-break: break-all;
+      max-height: 100px;
+      overflow-y: auto;
+      margin-bottom: 16px;
+      font-family: monospace;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    /* Share section */
+    .share-section {
+      margin-top: 16px;
+      padding: 16px;
+      background: #1a3a5c;
+      border-radius: 8px;
+      display: none;
+    }
+    .share-section.visible {
+      display: block;
+    }
+    .share-section h3 {
+      font-size: 13px;
+      color: #6db3f2;
+      margin-bottom: 12px;
+    }
+    .share-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .share-btn {
+      padding: 10px 16px;
+      font-size: 12px;
+      font-family: inherit;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+    .share-btn.twitter {
+      background: #1da1f2;
+      color: #fff;
+    }
+    .share-btn.twitter:hover {
+      background: #0d8bd9;
+    }
+    .share-btn.download {
+      background: #c3ff00;
+      color: #0a0a14;
+    }
+    .share-btn.download:hover {
+      background: #a8db00;
+    }
+    .share-btn.copy {
+      background: #333;
+      color: #fff;
+    }
+    .share-btn.copy:hover {
+      background: #444;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .drawer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 180px;
+        border-right: none;
+        border-top: 1px solid #333;
+        z-index: 50;
+      }
+
+      .drawer-content {
+        padding: 8px;
+      }
+
+      .items-grid {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      }
+
+      main {
+        flex-direction: column;
+      }
+
+      .canvas-area {
+        height: calc(100vh - 56px - 180px);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <button class="back-btn" onclick="goBack()">&larr;</button>
+    <div class="tile-info">
+      <h1 id="tile-title">Tile #0</h1>
+      <div class="owner" id="tile-owner">Connect wallet to edit</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="unsaved-badge" class="unsaved-badge">Unsaved Changes</span>
+    <span id="wallet-address" class="wallet-address"></span>
+    <button id="connect-btn" class="btn btn-secondary" onclick="connectWallet()">Connect</button>
+    <button id="mint-btn" class="btn btn-primary" onclick="openMintModal()" disabled>Mint Update</button>
+  </div>
+</header>
+
+<main>
+  <aside class="drawer">
+    <div class="drawer-tabs">
+      <button class="drawer-tab active" data-tab="free">Free</button>
+      <button class="drawer-tab" data-tab="my" disabled>My Items</button>
+    </div>
+    <div class="drawer-content" id="drawer-content">
+      <!-- Items loaded dynamically -->
+    </div>
+  </aside>
+
+  <section class="canvas-area">
+    <div class="canvas-toolbar">
+      <div class="toolbar-info">
+        <span id="placed-count">0</span>/49 items placed
+      </div>
+      <div class="toolbar-actions">
+        <button id="eraser-btn" class="tool-btn" onclick="toggleEraser()">Eraser</button>
+        <button id="reset-btn" class="tool-btn" onclick="resetToOriginal()" style="display:none;background:#e94560">Reset</button>
+        <button class="tool-btn" onclick="undo()">Undo</button>
+        <button class="tool-btn" onclick="redo()">Redo</button>
+        <button class="tool-btn" onclick="clearGrid()">Clear All</button>
+      </div>
+    </div>
+
+    <div class="canvas-container" id="canvas-container">
+      <div id="canvas-wrapper">
+        <canvas id="bg"></canvas>
+        <canvas id="fg"></canvas>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span id="status-hint">Drag items from drawer | Right-click or use Eraser to remove</span>
+      <span id="coord-display">-</span>
+    </div>
+
+    <!-- Share section (appears after mint) -->
+    <div id="share-section" class="share-section">
+      <h3>Share your tile</h3>
+      <div class="share-buttons">
+        <button id="copy-link-btn" class="share-btn copy" onclick="copyShareLink()">
+          Copy Link
+        </button>
+        <a id="twitter-share-btn" class="share-btn twitter" href="#" target="_blank">
+          Share on X
+        </a>
+        <button id="download-png-btn" class="share-btn download" onclick="downloadTilePng()">
+          Download PNG
+        </button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Drag preview -->
+<div id="drag-preview" class="drag-preview"></div>
+
+<!-- Mint modal -->
+<div id="mint-modal" class="modal-overlay">
+  <div class="modal">
+    <h2>Mint Tile Update</h2>
+    <div class="modal-preview" id="modal-preview"></div>
+    <div class="modal-name">
+      <label for="mint-name-input">Tile Name (stored onchain)</label>
+      <input type="text" id="mint-name-input" maxlength="32" placeholder="My Tile">
+    </div>
+    <div class="modal-info">
+      This will inscribe your tile layout on-chain. The inscription will update your tile's content permanently.
+    </div>
+    <div class="modal-json" id="modal-json"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeMintModal()">Cancel</button>
+      <button class="btn btn-primary" id="confirm-mint-btn" onclick="confirmMint()">Mint</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ============ CONFIG ============
+const GRID = 7;
+const TILE_W = 128;
+const TILE_H = 64;
+const SPRITE_W = 130;
+const SPRITE_H = 230;
+const TEX_COLS = 12;
+const TEX_ROWS = 6;
+const CANVAS_W = 910;
+const CANVAS_H = 666;
+
+// The 36 original IsoCity ethscriptions - ownership = tile ownership
+const TILE_TXS = [
+  "0x1e7a1feaa8c4380eb8c4ec5e65421bf2c53770298ded99479c91f4f899bb48bd",
+  "0xd711ece4fce8a031c0dd244044cc280e4239428180cfb6f74ba0645bb489fc84",
+  "0x67cff6315eb29ec69d3b13da87b1d0f7870dd1fdfd4f6aaed2e776fb80e3ee09",
+  "0x982f86cd27d78bb9cc511009927c732e1200cc04fe6d5a369ccd448325f9e3ec",
+  "0xbd3fc7b0834fbed6ae61b864163d85f02f1ef6736d7728189c777e4580e6449b",
+  "0x2bcc3e2ce93cec8d2bf8fc2f40f49f54b1fe704639e32e3ad443a1085dc80b57",
+  "0xec4f581f2dcb293067b1a36507f230b054c65f0a7e010773cb05997382c2da26",
+  "0x4592bbb5e5260791c460416e1aeb90032b39dc140aa9a5828fa3392ecaf18de5",
+  "0xb070460764098980a6484113462a56740cf510d9abc2ea842fdc7a1e3bc3f686",
+  "0xc0dba03dfd19b5cd19901a0aca847aad6d66be1f41a5e85b04c8a27eff8fc330",
+  "0x4be9d04fba321d150201b2d96e62190743b4d97425513293774c77b4b322398f",
+  "0xdf0cf60c311f42460dfbfd83a74cf03a3bc04d0290d3bf90346b8fd3737e837d",
+  "0xa1fc3693972d4a22294defd6fa608f13e375778f3726d612729c34b98fa85f13",
+  "0x614a51fb18efcdaa2110e8a62f06195d107312d699c5efdaaa9a6f6a0fc88ebe",
+  "0x16c096ef57bd329f3fa68915f7b63a3e629668b90f999e7959eeb8c37a1d8f19",
+  "0x8243a6e114145aa4124bdce845ffa7da18b487e343f9e5ac3ec6b749e80003a4",
+  "0x073ae52c6c70703a9efc907f1f675745d3d214fc6af929eaf6c308f372e9d124",
+  "0x81e8fedd2778eff787d651fd034615d4da1d3c90776b0c0b15def1b9a40299aa",
+  "0xa61c67cc7d2ca99e4ddf4f4c24886f83ecd50ebba8319c65f1fd0acbd3583a8b",
+  "0xcf4aac9e97b70251bd503d4898fe8d94806c1886f97857163bca7d08a9b43fc1",
+  "0xabd3f2075a8af6cc12e085a546fadb9602636e54a669195e59291ecf43189e46",
+  "0x0630f3be4ab057331d91edc02b4e718a566beb8d5d3b7a9d9b50a16a13e851f0",
+  "0x8173243917966829242a34583429936d4bde8493a7d5557c4b5bbff05eb0c5ab",
+  "0xdd65a97da061060bfb1efe54e743ea35f28b090f39b3b5dfd27b4efb1d9384a0",
+  "0x28cf598046ae865511afeee0d11b88d88da1a6a65bee6cfc68d0208917b7723b",
+  "0xc34c68874dd9bd7c069e530c1335a40134141f51b5d7ac137b5c505648785ec5",
+  "0x1a83d5b1607569fa8069357f1b879e130fde44dd8e7157a627edeba8120df5f8",
+  "0x2580cfcc534893c4df4dd6f01ca4fdf03eac227116bee940167c2a987f912c4d",
+  "0x3911825a7991165a4ad9611267f1f4d48d3b9ebeece6a74f44e0381f935a2942",
+  "0x0ab717f95adb0fec2836659f9d270c67fb6ac0b482bd2c20214e69c0c11b2a88",
+  "0xa3a27fd8158c9df605cb8871be6c33303fd2ad9a61bf551e844b25537d9f58ce",
+  "0xd86e359ebb3cd313d5af4ca370d29d71607776cff51493c63f8946241f77bc7b",
+  "0xc317bbf759fca1952133f010b2eb651f73662d890b9dbf5bdb9e0d6a50314fd0",
+  "0xa7a04ec0d65067cf9f675e9a2cf75666a953ecfb66ef74c53f60b440141b7f49",
+  "0x427df4fbb82c2bc2d2c45a0eccb00144b24398e213a8de6db4e6591c61c9fe0c",
+  "0x875cb9b011bb234d821cdd52556af1c2b805e91368275772dee5c0c64c7c7e4f"
+];
+
+// Starter buildings for new tiles
+const STARTER_SPRITES = [12, 13]; // Small house, medium house
+
+// Free items available in drawer (base terrain + basic buildings)
+// All 72 sprites from spritesheet (12 cols x 6 rows)
+const FREE_ITEMS = [
+  // Row 0: Terrain (0-11)
+  { id: 0, name: 'Grass', category: 'terrain' },
+  { id: 1, name: 'Road', category: 'terrain' },
+  { id: 2, name: 'Road Turn', category: 'terrain' },
+  { id: 3, name: 'Crossroad', category: 'terrain' },
+  { id: 4, name: 'Water', category: 'terrain' },
+  { id: 5, name: 'Bridge', category: 'terrain' },
+  { id: 6, name: 'Sand', category: 'terrain' },
+  { id: 7, name: 'Dirt', category: 'terrain' },
+  { id: 8, name: 'Terrain 8', category: 'terrain' },
+  { id: 9, name: 'Terrain 9', category: 'terrain' },
+  { id: 10, name: 'Terrain 10', category: 'terrain' },
+  { id: 11, name: 'Terrain 11', category: 'terrain' },
+  // Row 1: Buildings (12-23)
+  { id: 12, name: 'House 1', category: 'building' },
+  { id: 13, name: 'House 2', category: 'building' },
+  { id: 14, name: 'House 3', category: 'building' },
+  { id: 15, name: 'House 4', category: 'building' },
+  { id: 16, name: 'House 5', category: 'building' },
+  { id: 17, name: 'House 6', category: 'building' },
+  { id: 18, name: 'Building 18', category: 'building' },
+  { id: 19, name: 'Building 19', category: 'building' },
+  { id: 20, name: 'Building 20', category: 'building' },
+  { id: 21, name: 'Building 21', category: 'building' },
+  { id: 22, name: 'Building 22', category: 'building' },
+  { id: 23, name: 'Building 23', category: 'building' },
+  // Row 2: Structures (24-35)
+  { id: 24, name: 'Tower', category: 'structure' },
+  { id: 25, name: 'Structure 25', category: 'structure' },
+  { id: 26, name: 'Structure 26', category: 'structure' },
+  { id: 27, name: 'Structure 27', category: 'structure' },
+  { id: 28, name: 'Structure 28', category: 'structure' },
+  { id: 29, name: 'Structure 29', category: 'structure' },
+  { id: 30, name: 'Structure 30', category: 'structure' },
+  { id: 31, name: 'Structure 31', category: 'structure' },
+  { id: 32, name: 'Structure 32', category: 'structure' },
+  { id: 33, name: 'Structure 33', category: 'structure' },
+  { id: 34, name: 'Structure 34', category: 'structure' },
+  { id: 35, name: 'Structure 35', category: 'structure' },
+  // Row 3: Nature (36-47)
+  { id: 36, name: 'Tree 1', category: 'nature' },
+  { id: 37, name: 'Tree 2', category: 'nature' },
+  { id: 38, name: 'Tree 3', category: 'nature' },
+  { id: 39, name: 'Tree 4', category: 'nature' },
+  { id: 40, name: 'Nature 40', category: 'nature' },
+  { id: 41, name: 'Nature 41', category: 'nature' },
+  { id: 42, name: 'Nature 42', category: 'nature' },
+  { id: 43, name: 'Nature 43', category: 'nature' },
+  { id: 44, name: 'Nature 44', category: 'nature' },
+  { id: 45, name: 'Nature 45', category: 'nature' },
+  { id: 46, name: 'Nature 46', category: 'nature' },
+  { id: 47, name: 'Nature 47', category: 'nature' },
+  // Row 4: Decorations (48-59)
+  { id: 48, name: 'Decor 48', category: 'decor' },
+  { id: 49, name: 'Decor 49', category: 'decor' },
+  { id: 50, name: 'Decor 50', category: 'decor' },
+  { id: 51, name: 'Decor 51', category: 'decor' },
+  { id: 52, name: 'Decor 52', category: 'decor' },
+  { id: 53, name: 'Decor 53', category: 'decor' },
+  { id: 54, name: 'Decor 54', category: 'decor' },
+  { id: 55, name: 'Decor 55', category: 'decor' },
+  { id: 56, name: 'Decor 56', category: 'decor' },
+  { id: 57, name: 'Decor 57', category: 'decor' },
+  { id: 58, name: 'Decor 58', category: 'decor' },
+  { id: 59, name: 'Decor 59', category: 'decor' },
+  // Row 5: More (60-71)
+  { id: 60, name: 'Item 60', category: 'misc' },
+  { id: 61, name: 'Item 61', category: 'misc' },
+  { id: 62, name: 'Item 62', category: 'misc' },
+  { id: 63, name: 'Item 63', category: 'misc' },
+  { id: 64, name: 'Item 64', category: 'misc' },
+  { id: 65, name: 'Item 65', category: 'misc' },
+  { id: 66, name: 'Item 66', category: 'misc' },
+  { id: 67, name: 'Item 67', category: 'misc' },
+  { id: 68, name: 'Item 68', category: 'misc' },
+  { id: 69, name: 'Item 69', category: 'misc' },
+  { id: 70, name: 'Item 70', category: 'misc' },
+  { id: 71, name: 'Item 71', category: 'misc' },
+];
+
+// Custom sprites loaded from separate files (id >= 100)
+const customSprites = {};
+
+// ============ STATE ============
+let tileId = 0;
+let tileOwner = null;
+let walletAddress = null;
+let isOwner = false;
+let tileName = null;
+
+// Grid state: [row][col] = spriteId or null
+let grid = createEmptyGrid();
+
+// History for undo/redo
+let history = [JSON.stringify(grid)];
+let historyIndex = 0;
+
+// Drag state
+let draggedSpriteId = null;
+let isDragging = false;
+let eraserMode = false;
+
+// Spritesheet
+let spritesheet = null;
+
+// Canvas contexts
+let bgCtx, fgCtx;
+
+// ============ INITIALIZATION ============
+
+function createEmptyGrid() {
+  const g = [];
+  for (let i = 0; i < GRID; i++) {
+    g[i] = [];
+    for (let j = 0; j < GRID; j++) {
+      g[i][j] = null;
+    }
+  }
+  return g;
+}
+
+function generateStarterGrid() {
+  const g = createEmptyGrid();
+  // All grass base
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      g[i][j] = 0; // grass
+    }
+  }
+  // Add 1-2 starter buildings
+  g[3][3] = STARTER_SPRITES[0]; // center house
+  if (STARTER_SPRITES[1]) {
+    g[2][4] = STARTER_SPRITES[1]; // offset house
+  }
+  return g;
+}
+
+async function init() {
+  // Get tile ID from URL
+  const params = new URLSearchParams(window.location.search);
+  tileId = parseInt(params.get('id')) || 0;
+
+  document.getElementById('tile-title').textContent = `Tile #${tileId}`;
+
+  // Load spritesheet and custom sprites
+  await loadSpritesheet();
+  await loadCustomSprites();
+
+  // Setup canvas
+  setupCanvas();
+
+  // Load drawer items
+  loadDrawerItems();
+
+  // Setup events
+  setupCanvasEvents();
+  setupDragEvents();
+
+  // Load existing tile state or generate starter
+  await loadTileState();
+
+  // Initial render
+  render();
+  updateUI();
+}
+
+function loadSpritesheet() {
+  return new Promise((resolve, reject) => {
+    spritesheet = new Image();
+    spritesheet.onload = resolve;
+    spritesheet.onerror = reject;
+    spritesheet.src = 'textures/01_130x66_130x230.png';
+  });
+}
+
+// Load custom sprites (id >= 100)
+async function loadCustomSprites() {
+  for (const item of FREE_ITEMS) {
+    if (item.custom) {
+      const img = new Image();
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve; // Continue even if fails
+        img.src = item.custom;
+      });
+      customSprites[item.id] = img;
+    }
+  }
+}
+
+function setupCanvas() {
+  const wrapper = document.getElementById('canvas-wrapper');
+  const bg = document.getElementById('bg');
+  const fg = document.getElementById('fg');
+
+  bg.width = CANVAS_W;
+  bg.height = CANVAS_H;
+  fg.width = CANVAS_W;
+  fg.height = CANVAS_H;
+
+  // Set wrapper size
+  wrapper.style.width = CANVAS_W + 'px';
+  wrapper.style.height = CANVAS_H + 'px';
+
+  bgCtx = bg.getContext('2d');
+  fgCtx = fg.getContext('2d');
+}
+
+async function loadTileState() {
+  // Helper to validate grid structure
+  const isValidGrid = (g) => {
+    if (!Array.isArray(g) || g.length !== GRID) return false;
+    for (let i = 0; i < GRID; i++) {
+      if (!Array.isArray(g[i]) || g[i].length !== GRID) return false;
+    }
+    return true;
+  };
+
+  // Check localStorage for draft first
+  const draft = localStorage.getItem(`isocity_draft_tile_${tileId}`);
+  if (draft) {
+    try {
+      const parsed = JSON.parse(draft);
+      if (isValidGrid(parsed)) {
+        grid = parsed;
+        showToast('Draft restored', 'info');
+        return;
+      }
+    } catch (e) {}
+  }
+
+  // Check for saved tile state (from previous mint)
+  const savedState = localStorage.getItem(`isocity_tile_state_${tileId}`);
+  if (savedState) {
+    try {
+      const parsed = JSON.parse(savedState);
+      if (isValidGrid(parsed)) {
+        grid = parsed;
+        showToast('Loaded saved tile', 'info');
+        return;
+      }
+    } catch (e) {}
+  }
+
+  // Try to load from minted tx on chain
+  const updates = JSON.parse(localStorage.getItem('isocity_tile_updates') || '{}');
+  const mintTx = updates[tileId];
+  if (mintTx) {
+    try {
+      const loaded = await loadGridFromChain(mintTx);
+      if (loaded && loaded.grid && isValidGrid(loaded.grid)) {
+        grid = loaded.grid;
+        // Set name from chain if available
+        if (loaded.name) {
+          tileName = loaded.name;
+          document.getElementById('tile-title').textContent = tileName;
+        }
+        // Cache it for next time
+        localStorage.setItem(`isocity_tile_state_${tileId}`, JSON.stringify(grid));
+        showToast('Loaded from chain', 'info');
+        return;
+      }
+    } catch (e) {
+      console.error('Failed to load from chain:', e);
+    }
+  }
+
+  // Load original city from generated-maps.json
+  try {
+    const resp = await fetch('generated-maps.json');
+    if (resp.ok) {
+      const text = await resp.text();
+      if (text.startsWith('[')) {
+        const maps = JSON.parse(text);
+        if (maps[tileId] && maps[tileId].map) {
+          // Convert map format to grid
+          grid = createEmptyGrid();
+          for (let i = 0; i < GRID; i++) {
+            for (let j = 0; j < GRID; j++) {
+              grid[i][j] = 0; // Default grass
+            }
+          }
+          for (const item of maps[tileId].map) {
+            const row = Math.floor(item.sq / GRID);
+            const col = item.sq % GRID;
+            if (row >= 0 && row < GRID && col >= 0 && col < GRID) {
+              grid[row][col] = item.sprite;
+            }
+          }
+          showToast('Loaded original city', 'info');
+          return;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load generated-maps.json:', e);
+  }
+
+  // Fallback to starter grid
+  grid = generateStarterGrid();
+}
+
+// Fetch minted tile state from blockchain
+// Returns { grid, name } or null
+async function loadGridFromChain(txHash) {
+  try {
+    // Detect chain
+    let rpc = 'https://mainnet.base.org';
+    if (window.ethereum) {
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      if (chainId === '0x1') rpc = 'https://1rpc.io/eth';
+      else if (chainId === '0x5') rpc = 'https://rpc.ankr.com/eth_goerli';
+      else if (chainId === '0xaa36a7') rpc = 'https://rpc.ankr.com/eth_sepolia';
+    }
+
+    // Fetch tx
+    const res = await fetch(rpc, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getTransactionByHash',
+        params: [txHash]
+      })
+    });
+    if (!res.ok) return null;
+    const respText = await res.text();
+    if (!respText.startsWith('{')) return null; // Not JSON
+    const data = JSON.parse(respText);
+    if (!data.result?.input) return null;
+
+    // Decode calldata to string
+    const hex = data.result.input.slice(2);
+    const bytes = new Uint8Array(hex.match(/.{2}/g).map(b => parseInt(b, 16)));
+    const calldata = new TextDecoder().decode(bytes);
+
+    // Parse data URI: data:text/html;base64,...
+    if (!calldata.startsWith('data:text/html;base64,')) return null;
+    const base64 = calldata.slice('data:text/html;base64,'.length);
+    const html = decodeURIComponent(escape(atob(base64)));
+
+    // Extract name from const N='...' (new format)
+    const nameMatch = html.match(/const N='([^']*)'/);
+    const loadedName = nameMatch ? nameMatch[1].replace(/\\'/g, "'") : null;
+
+    // Try NEW format: const H='...' (base64 map data)
+    const hMatch = html.match(/const H='([^']*)'/);
+    if (hMatch) {
+      const mapB64 = hMatch[1];
+      const mapBytes = atob(mapB64);
+      const newGrid = createEmptyGrid();
+
+      for (let i = 0; i < GRID; i++) {
+        for (let j = 0; j < GRID; j++) {
+          const idx = i * GRID + j;
+          const val = mapBytes.charCodeAt(idx);
+          if (val === 255) {
+            newGrid[i][j] = null; // hole
+          } else {
+            const row = Math.floor(val / 12);
+            const col = val % 12;
+            newGrid[i][j] = row * TEX_COLS + col;
+          }
+        }
+      }
+      return { grid: newGrid, name: loadedName };
+    }
+
+    // Try OLD format: const M=[...] (sparse array)
+    const mMatch = html.match(/const M=\[([^\]]*)\]/);
+    if (mMatch) {
+      const mapData = mMatch[1].split(',').map(n => parseInt(n));
+      const newGrid = createEmptyGrid();
+
+      for (let k = 0; k < mapData.length; k += 2) {
+        const sq = mapData[k];
+        const sprite = mapData[k + 1];
+        const row = Math.floor(sq / GRID);
+        const col = sq % GRID;
+        if (row >= 0 && row < GRID && col >= 0 && col < GRID) {
+          if (sprite >= 100) {
+            newGrid[row][col] = 0;
+          } else {
+            newGrid[row][col] = sprite;
+          }
+        }
+      }
+      return { grid: newGrid, name: loadedName };
+    }
+
+    return null;
+  } catch (e) {
+    console.error('loadGridFromChain error:', e);
+    return null;
+  }
+}
+
+// ============ DRAWER ============
+
+function loadDrawerItems() {
+  const container = document.getElementById('drawer-content');
+  container.innerHTML = '';
+
+  // Group by category
+  const categories = {};
+  FREE_ITEMS.forEach(item => {
+    if (!categories[item.category]) categories[item.category] = [];
+    categories[item.category].push(item);
+  });
+
+  for (const [cat, items] of Object.entries(categories)) {
+    const section = document.createElement('div');
+    section.className = 'drawer-section';
+
+    const title = document.createElement('div');
+    title.className = 'drawer-section-title';
+    title.textContent = cat;
+    section.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'items-grid';
+
+    items.forEach(item => {
+      const el = createDrawerItem(item);
+      grid.appendChild(el);
+    });
+
+    section.appendChild(grid);
+    container.appendChild(section);
+  }
+}
+
+function createDrawerItem(item) {
+  const el = document.createElement('div');
+  el.className = 'drawer-item';
+  el.dataset.spriteId = item.id;
+  el.draggable = true;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 70;
+  canvas.height = 90;
+  renderSpritePreview(canvas, item.id);
+  el.appendChild(canvas);
+
+  const label = document.createElement('div');
+  label.className = 'drawer-item-label';
+  label.textContent = item.name;
+  el.appendChild(label);
+
+  return el;
+}
+
+function renderSpritePreview(canvas, spriteId) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Custom sprite (id >= 100)
+  if (spriteId >= 100 && customSprites[spriteId]) {
+    const img = customSprites[spriteId];
+    const scale = canvas.width / img.width;
+    const destH = img.height * scale;
+    ctx.drawImage(img, 0, canvas.height - destH, canvas.width, destH);
+    return;
+  }
+
+  if (!spritesheet || !spritesheet.complete) {
+    setTimeout(() => renderSpritePreview(canvas, spriteId), 100);
+    return;
+  }
+
+  const row = Math.floor(spriteId / TEX_COLS);
+  const col = spriteId % TEX_COLS;
+
+  const srcX = col * SPRITE_W;
+  const srcY = row * SPRITE_H;
+
+  const scale = canvas.width / SPRITE_W;
+  const destH = SPRITE_H * scale;
+
+  ctx.drawImage(
+    spritesheet,
+    srcX, srcY, SPRITE_W, SPRITE_H,
+    0, canvas.height - destH, canvas.width, destH
+  );
+}
+
+// ============ DRAG & DROP ============
+
+function setupDragEvents() {
+  const container = document.getElementById('drawer-content');
+  const preview = document.getElementById('drag-preview');
+
+  // Drawer item drag start
+  container.addEventListener('dragstart', (e) => {
+    const item = e.target.closest('.drawer-item');
+    if (!item) return;
+
+    draggedSpriteId = parseInt(item.dataset.spriteId);
+    item.classList.add('dragging');
+
+    // Create drag preview
+    const canvas = document.createElement('canvas');
+    canvas.width = 65;
+    canvas.height = 115;
+    renderSpritePreview(canvas, draggedSpriteId);
+    preview.innerHTML = '';
+    preview.appendChild(canvas);
+
+    // Use transparent drag image
+    const img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(img, 0, 0);
+    e.dataTransfer.effectAllowed = 'copy';
+  });
+
+  container.addEventListener('dragend', (e) => {
+    const item = e.target.closest('.drawer-item');
+    if (item) item.classList.remove('dragging');
+    draggedSpriteId = null;
+    preview.classList.remove('visible');
+    document.getElementById('canvas-container').classList.remove('drop-zone-active');
+  });
+
+  // Track mouse for preview
+  document.addEventListener('dragover', (e) => {
+    if (draggedSpriteId === null) return;
+    e.preventDefault();
+
+    preview.classList.add('visible');
+    preview.style.left = e.clientX + 'px';
+    preview.style.top = e.clientY + 'px';
+
+    // Check if over canvas
+    const canvasContainer = document.getElementById('canvas-container');
+    const fgCanvas = document.getElementById('fg');
+    const canvasRect = fgCanvas.getBoundingClientRect();
+
+    if (e.clientX >= canvasRect.left && e.clientX <= canvasRect.right &&
+        e.clientY >= canvasRect.top && e.clientY <= canvasRect.bottom) {
+      canvasContainer.classList.add('drop-zone-active');
+
+      // Calculate canvas coordinates
+      const scaleX = fgCanvas.width / canvasRect.width;
+      const scaleY = fgCanvas.height / canvasRect.height;
+      const canvasX = (e.clientX - canvasRect.left) * scaleX;
+      const canvasY = (e.clientY - canvasRect.top) * scaleY;
+
+      // Highlight target tile
+      const pos = screenToGrid(canvasX, canvasY);
+      if (isValidPos(pos)) {
+        renderHighlight(pos.x, pos.y);
+      } else {
+        clearForeground();
+      }
+    } else {
+      canvasContainer.classList.remove('drop-zone-active');
+      clearForeground();
+    }
+  });
+
+  // Drop on canvas
+  const canvasContainer = document.getElementById('canvas-container');
+  const fgCanvas = document.getElementById('fg');
+
+  canvasContainer.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (draggedSpriteId === null) return;
+
+    // Get position relative to the canvas
+    const canvasRect = fgCanvas.getBoundingClientRect();
+    const scaleX = fgCanvas.width / canvasRect.width;
+    const scaleY = fgCanvas.height / canvasRect.height;
+
+    const canvasX = (e.clientX - canvasRect.left) * scaleX;
+    const canvasY = (e.clientY - canvasRect.top) * scaleY;
+
+    const pos = screenToGrid(canvasX, canvasY);
+
+    if (isValidPos(pos)) {
+      placeItem(pos.x, pos.y, draggedSpriteId);
+    }
+
+    draggedSpriteId = null;
+    preview.classList.remove('visible');
+    canvasContainer.classList.remove('drop-zone-active');
+  });
+
+  canvasContainer.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+}
+
+// ============ CANVAS EVENTS ============
+
+function setupCanvasEvents() {
+  const fg = document.getElementById('fg');
+
+  function getCanvasCoords(e) {
+    const rect = fg.getBoundingClientRect();
+    const scaleX = fg.width / rect.width;
+    const scaleY = fg.height / rect.height;
+    return {
+      x: e.offsetX * scaleX,
+      y: e.offsetY * scaleY
+    };
+  }
+
+  fg.addEventListener('mousemove', (e) => {
+    const coords = getCanvasCoords(e);
+    const pos = screenToGrid(coords.x, coords.y);
+
+    if (isValidPos(pos)) {
+      renderHighlight(pos.x, pos.y);
+      document.getElementById('coord-display').textContent = `(${pos.x}, ${pos.y})`;
+    } else {
+      clearForeground();
+      document.getElementById('coord-display').textContent = '-';
+    }
+  });
+
+  fg.addEventListener('mouseleave', () => {
+    clearForeground();
+    document.getElementById('coord-display').textContent = '-';
+  });
+
+  fg.addEventListener('click', (e) => {
+    if (draggedSpriteId !== null) return;
+
+    const coords = getCanvasCoords(e);
+    const pos = screenToGrid(coords.x, coords.y);
+
+    if (isValidPos(pos)) {
+      if (eraserMode) {
+        // Eraser mode - remove item
+        removeItem(pos.x, pos.y);
+      } else {
+        console.log('Clicked tile:', pos, 'sprite:', grid[pos.x][pos.y]);
+      }
+    }
+  });
+
+  fg.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const coords = getCanvasCoords(e);
+    const pos = screenToGrid(coords.x, coords.y);
+
+    if (isValidPos(pos)) {
+      removeItem(pos.x, pos.y);
+    }
+  });
+}
+
+// ============ GRID OPERATIONS ============
+
+function placeItem(x, y, spriteId) {
+  grid[x][y] = spriteId;
+  saveHistory();
+  render();
+  updateUI();
+  markUnsaved();
+}
+
+function removeItem(x, y) {
+  // Delete anything - set to null (creates hole)
+  if (grid[x][y] !== null) {
+    grid[x][y] = null;
+    saveHistory();
+    render();
+    updateUI();
+    markUnsaved();
+  }
+}
+
+function clearGrid() {
+  if (!confirm('Clear all items from tile?')) return;
+  grid = createEmptyGrid();
+  saveHistory();
+  render();
+  updateUI();
+  markUnsaved();
+}
+
+function toggleEraser() {
+  eraserMode = !eraserMode;
+  const btn = document.getElementById('eraser-btn');
+  btn.classList.toggle('active', eraserMode);
+
+  // Update cursor
+  const fg = document.getElementById('fg');
+  fg.style.cursor = eraserMode ? 'crosshair' : 'default';
+
+  // Deselect drawer items
+  if (eraserMode) {
+    document.querySelectorAll('.drawer-item').forEach(el => el.classList.remove('selected'));
+  }
+
+  showToast(eraserMode ? 'Eraser ON - click tiles to remove' : 'Eraser OFF', 'info');
+}
+
+// Reset tile to original (clears any edits from KV)
+async function resetToOriginal() {
+  if (!walletAddress || !eth) {
+    showToast('Connect wallet first', 'error');
+    return;
+  }
+
+  if (!confirm('Reset this tile to its original minted state? This will clear any edits.')) {
+    return;
+  }
+
+  try {
+    // Sign message to prove ownership
+    const message = `Reset IsoCity Tile #${tileId}`;
+    const signature = await eth.request({
+      method: 'personal_sign',
+      params: [message, walletAddress]
+    });
+
+    // Send to API
+    const resp = await fetch('https://chainhost.online/api/isocity/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tileId,
+        signature,
+        address: walletAddress
+      })
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data.error || 'Reset failed');
+    }
+
+    showToast('Tile reset to original!', 'success');
+
+    // Reload the original tile
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  } catch (e) {
+    console.error(e);
+    showToast('Reset failed: ' + e.message, 'error');
+  }
+}
+
+// ============ HISTORY ============
+
+function saveHistory() {
+  // Remove future states
+  history = history.slice(0, historyIndex + 1);
+  history.push(JSON.stringify(grid));
+  historyIndex = history.length - 1;
+
+  // Limit size
+  if (history.length > 50) {
+    history.shift();
+    historyIndex--;
+  }
+}
+
+function undo() {
+  if (historyIndex > 0) {
+    historyIndex--;
+    grid = JSON.parse(history[historyIndex]);
+    render();
+    updateUI();
+    markUnsaved();
+  }
+}
+
+function redo() {
+  if (historyIndex < history.length - 1) {
+    historyIndex++;
+    grid = JSON.parse(history[historyIndex]);
+    render();
+    updateUI();
+    markUnsaved();
+  }
+}
+
+// ============ RENDERING ============
+
+function render() {
+  if (!spritesheet || !spritesheet.complete) return;
+
+  // Clear entire canvas
+  bgCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Draw all tiles (back to front for proper layering)
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      const spriteId = grid[i][j];
+
+      // null = hole (don't draw anything)
+      if (spriteId === null) continue;
+
+      // Draw grass base first
+      drawSprite(bgCtx, i, j, 0);
+
+      // Draw item on top (if not grass)
+      if (spriteId !== 0) {
+        drawSprite(bgCtx, i, j, spriteId);
+      }
+    }
+  }
+}
+
+function drawSprite(ctx, gridX, gridY, spriteId) {
+  // Convert grid to screen coordinates
+  const centerX = CANVAS_W / 2;
+  const centerY = TILE_H * 2;
+
+  const isoX = (gridY - gridX) * TILE_W / 2;
+  const isoY = (gridX + gridY) * TILE_H / 2;
+
+  // Custom sprite (id >= 100) - scale based on tile size
+  if (spriteId >= 100 && customSprites[spriteId]) {
+    const img = customSprites[spriteId];
+    const item = FREE_ITEMS.find(i => i.id === spriteId);
+    const tiles = item?.tiles || [1, 1];
+    const tileScale = Math.max(tiles[0], tiles[1]);
+
+    // Target width based on tile count (130px per tile)
+    const targetW = SPRITE_W * tileScale;
+    const scale = targetW / img.naturalWidth;
+    const w = targetW;
+    const h = img.naturalHeight * scale;
+
+    // Anchor at bottom-center of tile
+    const screenX = centerX + isoX - w / 2;
+    const screenY = centerY + isoY - h + TILE_H;
+    ctx.drawImage(img, screenX, screenY, w, h);
+    return;
+  }
+
+  // Regular spritesheet sprite
+  const screenX = centerX + isoX - SPRITE_W / 2;
+  const screenY = centerY + isoY - SPRITE_H + TILE_H;
+
+  const row = Math.floor(spriteId / TEX_COLS);
+  const col = spriteId % TEX_COLS;
+
+  ctx.drawImage(
+    spritesheet,
+    col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H,
+    screenX, screenY, SPRITE_W, SPRITE_H
+  );
+}
+
+function renderHighlight(gridX, gridY) {
+  clearForeground();
+
+  // Convert grid to screen coordinates (same as drawSprite)
+  const centerX = CANVAS_W / 2;
+  const centerY = TILE_H * 2;
+
+  const isoX = (gridY - gridX) * TILE_W / 2;
+  const isoY = (gridX + gridY) * TILE_H / 2;
+
+  const screenX = centerX + isoX;
+  const screenY = centerY + isoY;
+
+  const hw = TILE_W / 2;
+  const hh = TILE_H / 2;
+
+  fgCtx.save();
+  fgCtx.translate(screenX, screenY);
+
+  const strokeColor = eraserMode ? '#ff4444' : '#00ff00';
+  const fillColor = eraserMode ? 'rgba(255, 50, 50, 0.25)' : 'rgba(0, 255, 0, 0.25)';
+
+  // Simple flat diamond on tile surface
+  fgCtx.beginPath();
+  fgCtx.moveTo(0, 0);
+  fgCtx.lineTo(hw, hh);
+  fgCtx.lineTo(0, TILE_H);
+  fgCtx.lineTo(-hw, hh);
+  fgCtx.closePath();
+
+  fgCtx.fillStyle = fillColor;
+  fgCtx.fill();
+  fgCtx.lineWidth = 2;
+  fgCtx.strokeStyle = strokeColor;
+  fgCtx.stroke();
+
+  fgCtx.restore();
+}
+
+function clearForeground() {
+  fgCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+}
+
+// ============ COORDINATE CONVERSION ============
+
+function screenToGrid(screenX, screenY) {
+  // Use same formula as original main.js
+  const _y = (screenY - TILE_H * 2) / TILE_H;
+  const _x = screenX / TILE_W - GRID / 2;
+
+  const gridX = Math.floor(_y - _x);
+  const gridY = Math.floor(_x + _y);
+
+  return { x: gridX, y: gridY };
+}
+
+function isValidPos(pos) {
+  return pos.x >= 0 && pos.x < GRID && pos.y >= 0 && pos.y < GRID;
+}
+
+// ============ UI ============
+
+function updateUI() {
+  let count = 0;
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      if (grid[i][j] !== null) count++;
+    }
+  }
+  document.getElementById('placed-count').textContent = count;
+}
+
+function markUnsaved() {
+  document.getElementById('unsaved-badge').classList.add('visible');
+  document.getElementById('mint-btn').disabled = false;
+
+  // Save draft to localStorage
+  localStorage.setItem(`isocity_draft_tile_${tileId}`, JSON.stringify(grid));
+}
+
+function markSaved() {
+  document.getElementById('unsaved-badge').classList.remove('visible');
+  localStorage.removeItem(`isocity_draft_tile_${tileId}`);
+}
+
+// ============ WALLET ============
+
+// Global eth provider
+let eth = null;
+
+async function connectWallet() {
+  // Use window.ethereum (works with MetaMask, Phantom injects here too)
+  if (window.ethereum) {
+    eth = window.ethereum;
+    console.log('Using window.ethereum provider');
+  } else {
+    alert('No wallet detected - install MetaMask');
+    return;
+  }
+
+  const btn = document.getElementById('connect-btn');
+  btn.textContent = 'Connecting...';
+
+  try {
+    const accounts = await eth.request({ method: 'eth_requestAccounts' });
+    // Keep original checksummed address for transactions
+    walletAddress = accounts[0];
+
+    // Log chain info
+    const chainId = await eth.request({ method: 'eth_chainId' });
+    const chainNames = {
+      '0x1': 'Ethereum Mainnet',
+      '0x2105': 'Base Mainnet',
+      '0xaa36a7': 'Sepolia',
+      '0x14a34': 'Base Sepolia'
+    };
+    console.log('Connected:', walletAddress);
+    console.log('Chain:', chainId, chainNames[chainId] || 'Unknown');
+
+    document.getElementById('wallet-address').textContent =
+      walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+    btn.textContent = 'Connected';
+
+    // Now check ownership of this tile
+    await checkOwnership();
+  } catch (e) {
+    btn.textContent = 'Connect';
+    alert('Connection failed: ' + e.message);
+  }
+}
+
+async function checkOwnership() {
+  if (tileId >= TILE_TXS.length) {
+    document.getElementById('tile-owner').textContent = 'Invalid tile ID';
+    return;
+  }
+
+  document.getElementById('tile-owner').textContent = 'Checking ownership...';
+
+  const tileTxHash = TILE_TXS[tileId];
+
+  try {
+    const resp = await fetch(`https://api.ethscriptions.com/v2/ethscriptions/${tileTxHash}`);
+    if (resp.ok) {
+      const text = await resp.text();
+      if (text.startsWith('{')) {
+        const data = JSON.parse(text);
+        tileOwner = (data.result?.current_owner || data.current_owner || '').toLowerCase();
+      }
+    }
+  } catch (e) {
+    // API failed - allow editing anyway
+    tileOwner = null;
+  }
+
+  if (!tileOwner || walletAddress === tileOwner) {
+    isOwner = true;
+    document.getElementById('tile-owner').textContent = 'You own this tile';
+    document.getElementById('tile-owner').style.color = '#c3ff00';
+    document.getElementById('mint-btn').disabled = false;
+    document.getElementById('reset-btn').style.display = 'inline-block';
+  } else {
+    isOwner = false;
+    const shortOwner = tileOwner.slice(0, 6) + '...' + tileOwner.slice(-4);
+    document.getElementById('tile-owner').textContent = `Owner: ${shortOwner} (view only)`;
+    document.getElementById('tile-owner').style.color = '#888';
+    document.getElementById('mint-btn').disabled = true;
+    document.getElementById('mint-btn').textContent = 'Not Owner';
+  }
+}
+
+// ============ MINTING ============
+
+function openMintModal() {
+  const modal = document.getElementById('mint-modal');
+
+  // Set name input default value
+  const nameInput = document.getElementById('mint-name-input');
+  nameInput.value = tileName || `Tile #${tileId}`;
+
+  // Render preview
+  const previewContainer = document.getElementById('modal-preview');
+  const previewCanvas = document.createElement('canvas');
+  previewCanvas.width = 455;
+  previewCanvas.height = 333;
+  const ctx = previewCanvas.getContext('2d');
+
+  const scale = previewCanvas.width / CANVAS_W;
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+  ctx.save();
+  ctx.translate(previewCanvas.width / 2, TILE_H * 2 * scale);
+  ctx.scale(scale, scale);
+
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      const spriteId = grid[i][j];
+
+      // null = hole, skip
+      if (spriteId === null) continue;
+
+      const screenX = (j - i) * TILE_W / 2;
+      const screenY = (i + j) * TILE_H / 2;
+
+      // Draw grass base first
+      ctx.drawImage(
+        spritesheet,
+        0, 0, SPRITE_W, SPRITE_H,
+        screenX - SPRITE_W / 2, screenY - SPRITE_H + TILE_H,
+        SPRITE_W, SPRITE_H
+      );
+
+      // Draw item on top if not grass
+      if (spriteId !== 0) {
+        const row = Math.floor(spriteId / TEX_COLS);
+        const col = spriteId % TEX_COLS;
+        ctx.drawImage(
+          spritesheet,
+          col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H,
+          screenX - SPRITE_W / 2, screenY - SPRITE_H + TILE_H,
+          SPRITE_W, SPRITE_H
+        );
+      }
+    }
+  }
+  ctx.restore();
+
+  previewContainer.innerHTML = '';
+  previewContainer.appendChild(previewCanvas);
+
+  // Generate HTML ethscription with name from input
+  const mintName = document.getElementById('mint-name-input').value.trim() || `Tile #${tileId}`;
+  const html = generateHtmlEthscription(mintName);
+  const htmlBase64 = btoa(unescape(encodeURIComponent(html)));
+  const ethscription = 'data:text/html;base64,' + htmlBase64;
+
+  // Show preview of format
+  const byteSize = new TextEncoder().encode(ethscription).length;
+  document.getElementById('modal-json').textContent =
+    `Format: data:text/html;base64,...\nSize: ${byteSize.toLocaleString()} bytes\nName: ${mintName}`;
+
+  modal.classList.add('visible');
+}
+
+function closeMintModal() {
+  document.getElementById('mint-modal').classList.remove('visible');
+}
+
+function generateInscription() {
+  const placements = [];
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      if (grid[i][j] !== null) {
+        const sq = i * GRID + j;
+        placements.push(`${sq}:${grid[i][j]}`);
+      }
+    }
+  }
+
+  return {
+    p: 'isocity',
+    op: 'update',
+    tile: tileId,
+    g: placements.join('|')
+  };
+}
+
+// Generate self-contained HTML ethscription
+function generateHtmlEthscription(tileName) {
+  // Build compact map data as base64 (each byte = row*12 + col)
+  const bytes = [];
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      const spriteId = grid[i][j];
+      if (spriteId !== null && spriteId < 100) {
+        const row = Math.floor(spriteId / TEX_COLS);
+        const col = spriteId % TEX_COLS;
+        bytes.push(row * 12 + col);
+      } else {
+        bytes.push(255); // 255 = hole (transparent)
+      }
+    }
+  }
+  const mapB64 = btoa(String.fromCharCode(...bytes));
+
+  // Spritesheet manifest tx on Base
+  const manifestTx = '0x9a636f402d9db52b36c9c9a1c4da8c79beba4d8da9ac4c121f20257bc12c3b56';
+
+  // Escape name for JS string (replace ' with \')
+  const safeName = (tileName || `Tile #${tileId}`).replace(/'/g, "\\'");
+  const displayTitle = tileName || `IsoCity Tile #${tileId}`;
+
+  // Self-contained HTML that loads spritesheet from chain
+  // N = tile name (stored onchain)
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${displayTitle}</title><style>*{margin:0;padding:0}body{background:#0a0a14;display:flex;align-items:center;justify-content:center;min-height:100vh}canvas{max-width:100%;max-height:100vh}</style></head><body><canvas id="c" width="910" height="666"></canvas>${'<'}script>const M='${manifestTx}',H='${mapB64}',N='${safeName}',R='https://mainnet.base.org',P='data:chunk,';async function F(h){const r=await fetch(R,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',method:'eth_getTransactionByHash',params:[h],id:1})});const{result:t}=await r.json();const x=t.input.slice(2),b=new Uint8Array(x.length/2);for(let i=0;i<x.length;i+=2)b[i/2]=parseInt(x.substr(i,2),16);return new TextDecoder().decode(b)}function D(c){if(!c.startsWith(P))return null;const p=JSON.parse(atob(c.slice(P.length))),b=atob(p.data),d=new Uint8Array(b.length);for(let i=0;i<b.length;i++)d[i]=b.charCodeAt(i);return{part:p.part,data:d}}async function L(){const m=JSON.parse((await F(M)).slice((await F(M)).indexOf('{')));const c=[];for(const h of m.chunks){const d=D(await F(h));c.push(d)}c.sort((a,b)=>a.part-b.part);const r=new Uint8Array(c.reduce((s,x)=>s+x.data.length,0));let o=0;for(const x of c){r.set(x.data,o);o+=x.data.length}return new Promise(res=>{const i=new Image();i.onload=()=>res(i);i.src=URL.createObjectURL(new Blob([r],{type:'image/png'}))})}function G(){const b=atob(H),m=[];for(let i=0;i<49;i++){const v=b.charCodeAt(i);m.push(v===255?null:[Math.floor(v/12),v%12])}return m}async function I(){const t=await L(),m=G(),c=document.getElementById('c').getContext('2d');c.fillStyle='#0a0a14';c.fillRect(0,0,910,666);c.translate(455,128);for(let i=0;i<7;i++)for(let j=0;j<7;j++){const e=m[i*7+j];if(!e)continue;const[r,l]=e;c.save();c.translate((j-i)*64,(i+j)*32);c.drawImage(t,l*130,r*230,130,230,-65,-130,130,230);c.restore()}}I();<\/script></body></html>`;
+
+  return html;
+}
+
+async function confirmMint() {
+  if (!walletAddress || !eth) {
+    showToast('Connect wallet first', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('confirm-mint-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    // Get name from input
+    const mintName = document.getElementById('mint-name-input').value.trim() || `Tile #${tileId}`;
+
+    // Generate self-contained HTML with name
+    const html = generateHtmlEthscription(mintName);
+
+    // Base64 encode the HTML
+    const htmlBase64 = btoa(unescape(encodeURIComponent(html)));
+
+    // Format as data URI
+    const ethscription = 'data:text/html;base64,' + htmlBase64;
+
+    // Convert to hex for calldata (same as register page)
+    const hex = '0x' + Array.from(new TextEncoder().encode(ethscription))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Get nonce and gas price from public RPC
+    const rpc = 'https://1rpc.io/eth';
+    const fetchRpc = async (method, params) => {
+      const r = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 })
+      });
+      return (await r.json()).result;
+    };
+
+    const nonce = await fetchRpc('eth_getTransactionCount', [walletAddress, 'latest']);
+    const gasPrice = await fetchRpc('eth_gasPrice', []);
+    const gasLimit = '0x30000'; // 196608 - enough for ~5kb calldata
+
+    console.log('Nonce:', nonce, 'Gas:', gasPrice);
+
+    // Sign transaction with wallet
+    const txParams = {
+      from: walletAddress,
+      to: walletAddress,
+      data: hex,
+      nonce: nonce,
+      gasPrice: gasPrice,
+      gas: gasLimit,
+      value: '0x0',
+      chainId: '0x1'
+    };
+
+    let tx;
+    try {
+      // Try signing and sending raw
+      const signed = await eth.request({
+        method: 'eth_signTransaction',
+        params: [txParams]
+      });
+      console.log('Signed:', signed);
+
+      // Broadcast via public RPC
+      tx = await fetchRpc('eth_sendRawTransaction', [signed]);
+      console.log('Broadcast TX:', tx);
+    } catch (signErr) {
+      console.log('Sign failed, trying direct send:', signErr.message);
+      // Fallback to direct send
+      tx = await eth.request({
+        method: 'eth_sendTransaction',
+        params: [txParams]
+      });
+    }
+    console.log('TX:', tx);
+
+    closeMintModal();
+    markSaved();
+
+    // Save update tx to localStorage for world.html to load
+    const updates = JSON.parse(localStorage.getItem('isocity_tile_updates') || '{}');
+    updates[tileId] = tx;
+    localStorage.setItem('isocity_tile_updates', JSON.stringify(updates));
+
+    // Also save to KV for global access
+    try {
+      await fetch('https://chainhost.online/api/isocity/updates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tileId, txHash: tx })
+      });
+    } catch (e) {
+      console.error('Failed to save to KV:', e);
+    }
+
+    // Save grid state so it loads when re-editing
+    localStorage.setItem(`isocity_tile_state_${tileId}`, JSON.stringify(grid));
+
+    // Clear draft since we've minted
+    localStorage.removeItem(`isocity_draft_tile_${tileId}`);
+
+    // Clear history after successful mint
+    history = [JSON.stringify(grid)];
+    historyIndex = 0;
+
+    // Get chain for explorer URL
+    const chainId = await eth.request({ method: 'eth_chainId' });
+    const explorers = {
+      '0x1': 'https://etherscan.io/tx/',
+      '0x5': 'https://goerli.etherscan.io/tx/',
+      '0xaa36a7': 'https://sepolia.etherscan.io/tx/',
+      '0x2105': 'https://basescan.org/tx/',
+      '0x14a34': 'https://sepolia.basescan.org/tx/'
+    };
+    const explorerUrl = (explorers[chainId] || 'https://etherscan.io/tx/') + tx;
+
+    showToast('Minted successfully!', 'success');
+
+    // Update tileName from what was just minted
+    tileName = mintName;
+    document.getElementById('tile-title').textContent = tileName;
+
+    // Close modal
+    closeMintModal();
+
+    // Track contribution (with name for display)
+    try {
+      await fetch('https://chainhost.online/api/isocity/contributions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: walletAddress,
+          tileId,
+          txHash: tx,
+          name: mintName,
+          timestamp: Date.now()
+        })
+      });
+    } catch (e) {
+      console.error('Failed to track contribution:', e);
+    }
+
+    // Cache name in KV for world.html
+    try {
+      await fetch('https://chainhost.online/api/isocity/names', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tileId, name: mintName })
+      });
+    } catch (e) {
+      console.error('Failed to cache name:', e);
+    }
+
+    // Show share section
+    showShareSection(mintName, tx);
+
+    // Open in new tab
+    setTimeout(() => {
+      if (confirm(`Tile minted!\n\nTx: ${tx}\n\nOpen in block explorer?`)) {
+        window.open(explorerUrl, '_blank');
+      }
+    }, 500);
+
+  } catch (e) {
+    console.error('Mint error:', e);
+
+    if (e.code === 4001 || e.message?.includes('rejected')) {
+      showToast('Transaction cancelled', 'info');
+    } else {
+      showToast('Mint failed: ' + (e.message || e.code || 'Unknown error'), 'error');
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Mint';
+  }
+}
+
+// ============ UTILS ============
+
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `toast visible ${type}`;
+  setTimeout(() => {
+    toast.classList.remove('visible');
+  }, 3000);
+}
+
+function goBack() {
+  if (document.getElementById('unsaved-badge').classList.contains('visible')) {
+    if (!confirm('You have unsaved changes. Leave anyway?')) return;
+  }
+  window.location.href = 'world.html';
+}
+
+// ============ SHARE ============
+
+async function showShareSection(mintName, txHash) {
+  const shareSection = document.getElementById('share-section');
+  const twitterBtn = document.getElementById('twitter-share-btn');
+
+  // Upload the tile PNG for OG image
+  try {
+    const pngDataUrl = generateTilePngDataUrl(mintName);
+    await fetch('https://chainhost.online/api/isocity/og-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tileId,
+        name: mintName,
+        image: pngDataUrl
+      })
+    });
+  } catch (e) {
+    console.error('Failed to upload OG image:', e);
+  }
+
+  // Share URL goes through API for proper OG tags
+  const shareUrl = `https://chainhost.online/api/isocity/share/${tileId}`;
+
+  // Store for copy function
+  window.currentShareUrl = shareUrl;
+
+  // Twitter share - just the URL, OG tags do the rest
+  twitterBtn.href = `https://x.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`;
+
+  // Show the share section
+  shareSection.classList.add('visible');
+}
+
+// Generate PNG data URL for OG image upload
+function generateTilePngDataUrl(mintName) {
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = 1200;  // Twitter recommended
+  exportCanvas.height = 630;  // Twitter recommended
+  const ctx = exportCanvas.getContext('2d');
+
+  // Dark background
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0, 0, 1200, 630);
+
+  // Draw tile name
+  ctx.fillStyle = '#c3ff00';
+  ctx.font = 'bold 48px SF Mono, Monaco, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(mintName, 600, 80);
+
+  // Draw "IsoCity" branding
+  ctx.fillStyle = '#e94560';
+  ctx.font = 'bold 24px SF Mono, Monaco, monospace';
+  ctx.fillText('IsoCity', 600, 600);
+
+  // Scale and center the city
+  const scale = 1.2;
+  ctx.save();
+  ctx.translate(600, 340);
+  ctx.scale(scale, scale);
+
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      const spriteId = grid[i][j];
+      if (spriteId === null) continue;
+
+      const screenX = (j - i) * TILE_W / 2;
+      const screenY = (i + j) * TILE_H / 2;
+
+      // Draw grass base
+      ctx.drawImage(
+        spritesheet,
+        0, 0, SPRITE_W, SPRITE_H,
+        screenX - SPRITE_W / 2, screenY - SPRITE_H + TILE_H,
+        SPRITE_W, SPRITE_H
+      );
+
+      // Draw item on top
+      if (spriteId !== 0 && spriteId < 100) {
+        const row = Math.floor(spriteId / TEX_COLS);
+        const col = spriteId % TEX_COLS;
+        ctx.drawImage(
+          spritesheet,
+          col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H,
+          screenX - SPRITE_W / 2, screenY - SPRITE_H + TILE_H,
+          SPRITE_W, SPRITE_H
+        );
+      }
+    }
+  }
+  ctx.restore();
+
+  return exportCanvas.toDataURL('image/png');
+}
+
+function copyShareLink() {
+  const url = window.currentShareUrl;
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copy-link-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy Link'; }, 2000);
+  }).catch(() => {
+    showToast('Failed to copy', 'error');
+  });
+}
+
+function downloadTilePng() {
+  // Create a high-res canvas for the PNG
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = CANVAS_W;
+  exportCanvas.height = CANVAS_H;
+  const ctx = exportCanvas.getContext('2d');
+
+  // Dark background
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Draw the tile name at top
+  ctx.fillStyle = '#c3ff00';
+  ctx.font = 'bold 32px SF Mono, Monaco, monospace';
+  ctx.textAlign = 'center';
+  const displayName = tileName || `Tile #${tileId}`;
+  ctx.fillText(displayName, CANVAS_W / 2, 50);
+
+  // Draw the city
+  ctx.save();
+  ctx.translate(CANVAS_W / 2, TILE_H * 2 + 40);
+
+  for (let i = 0; i < GRID; i++) {
+    for (let j = 0; j < GRID; j++) {
+      const spriteId = grid[i][j];
+      if (spriteId === null) continue;
+
+      const screenX = (j - i) * TILE_W / 2;
+      const screenY = (i + j) * TILE_H / 2;
+
+      // Draw grass base first
+      ctx.drawImage(
+        spritesheet,
+        0, 0, SPRITE_W, SPRITE_H,
+        screenX - SPRITE_W / 2, screenY - SPRITE_H + TILE_H,
+        SPRITE_W, SPRITE_H
+      );
+
+      // Draw item on top if not grass
+      if (spriteId !== 0 && spriteId < 100) {
+        const row = Math.floor(spriteId / TEX_COLS);
+        const col = spriteId % TEX_COLS;
+        ctx.drawImage(
+          spritesheet,
+          col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H,
+          screenX - SPRITE_W / 2, screenY - SPRITE_H + TILE_H,
+          SPRITE_W, SPRITE_H
+        );
+      }
+    }
+  }
+  ctx.restore();
+
+  // Download
+  const link = document.createElement('a');
+  link.download = `isocity-tile-${tileId}.png`;
+  link.href = exportCanvas.toDataURL('image/png');
+  link.click();
+
+  showToast('PNG downloaded!', 'success');
+}
+
+// ============ START ============
+init();
+</script>
+
+</body>
+</html>
