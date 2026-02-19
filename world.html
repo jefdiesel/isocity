@@ -1177,7 +1177,7 @@ async function showCityPanel(index) {
   const shareBtn = document.getElementById('btn-share');
 
   // Always set up share button
-  const shareUrl = `https://chainhost.online/api/isocity/share/${index}`;
+  const shareUrl = `https://api.chainhost.online/api/isocity/share/${index}`;
   shareBtn.href = `https://x.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`;
 
   // Hide edit button by default

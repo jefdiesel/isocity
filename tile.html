@@ -2010,7 +2010,7 @@ async function showShareSection(mintName, txHash) {
   // Upload the tile PNG for OG image
   try {
     const pngDataUrl = generateTilePngDataUrl(mintName);
-    await fetch('https://chainhost.online/api/isocity/og-image', {
+    await fetch('https://api.chainhost.online/api/isocity/og-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2024,7 +2024,7 @@ async function showShareSection(mintName, txHash) {
   }
 
   // Share URL goes through API for proper OG tags
-  const shareUrl = `https://chainhost.online/api/isocity/share/${tileId}`;
+  const shareUrl = `https://api.chainhost.online/api/isocity/share/${tileId}`;
 
   // Store for copy function
   window.currentShareUrl = shareUrl;
